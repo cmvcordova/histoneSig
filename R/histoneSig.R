@@ -205,6 +205,7 @@ parse_regions_with_multiple_overlaps <- function(query, target){
 
 ####### Same as function from quantmod, only difference
 ####### Is the sum is +1 instead of +2
+
 findvalleysone <- function (x, thresh = 0)
 {
   pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) >
@@ -262,7 +263,7 @@ obtain_extended_parsing_regions <- function(query,target){
   new_object$width <- width(new_object)
   new_object$num_overlaps <- countOverlaps(new_object,query)
 
-
+  return(new_object)
   ## further optimization: remove ranges shared between
   ## created range object and within-range-object-singles (if any)
 
