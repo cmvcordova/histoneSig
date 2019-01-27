@@ -17,7 +17,7 @@ lowpass_filter <- function(x,n){stats::filter(x,rep(1/n,n), sides=1)}
 ## Function to filter and order genomic ranges by 23 canonical chromosomes
 granges_chr_filter <- function(granges_object){
   granges_object <- granges_object[grep("[chr]+([0-9]{1,2}$|X|Y)",seqnames(granges_object)),]
-  seqlevels(granges_object,force=TRUE) <- unique(as.character(seqnames(granges_object)))
+  seqlevels(granges_object) <- unique(as.character(seqnames(granges_object)))
   granges_object <- sortSeqlevels(granges_object)
   granges_object <- sort(granges_object)
 }
@@ -161,6 +161,21 @@ lowpass_filter_signalSet <- function(signalsetlist,n){
   return(signalsetlist)
 }
 
+####### Same as function from quantmod, only difference
+####### Is the sum is +1 instead of +2
+
+findvalleysone <- function (x, thresh = 0)
+{
+  pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) >
+                 0) + 1
+  if (!missing(thresh)) {
+    if (sign(thresh) > 0)
+      thresh <- -thresh
+    pks[x[pks - 1] - coredata(x[pks]) < thresh]
+  }
+  else pks
+}
+
 
 ### Subsetting with only numbers for S3 class is pretty weak, find alternate form
 valley_positions_from_signalsetlist <-function(signalsetlist){
@@ -172,7 +187,7 @@ valley_positions_from_signalsetlist <-function(signalsetlist){
   ##(or don't, learn to circumvent the list wrapper in signalSets
 
   ##apply findValleys to returnv alleys in sets
-  valleys <- lapply(lapply(signalsetlist,'[[', 1), function(x){findValleys(x)})
+  valleys <- lapply(lapply(signalsetlist,'[[', 1), function(x){findvalleysone(x)})
   ## Obtain respective starting positions, subtract 1 since these will be
   ## added to the valley's index
   starts <- unlist(lapply(signalsetlist,'[[', 3))-1
@@ -203,23 +218,10 @@ parse_regions_with_multiple_overlaps <- function(query, target){
   query[countOverlaps(query,target) > 1,]
 }
 
-####### Same as function from quantmod, only difference
-####### Is the sum is +1 instead of +2
-
-findvalleysone <- function (x, thresh = 0)
-{
-  pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) >
-                 0) + 1
-  if (!missing(thresh)) {
-    if (sign(thresh) > 0)
-      thresh <- -thresh
-    pks[x[pks - 1] - coredata(x[pks]) < thresh]
-  }
-  else pks
-}
 
 ############ TEST FURTHER FOR ROBUSTNESS
 ############ AND GENERAL SENSE
+### Probably rename into "join overlaps" or something
 
 obtain_extended_parsing_regions <- function(query,target){
 
@@ -260,12 +262,23 @@ obtain_extended_parsing_regions <- function(query,target){
   new_multiples <- GRanges(seqnames = chr, ranges = IRanges(start = new_start,end = new_end))
   elementMetadata(zeros) <- NULL
   new_object <- c(zeros,new_multiples)
-  new_object$width <- width(new_object)
+  new_object$intervalwidth <- width(new_object)
   new_object$num_overlaps <- countOverlaps(new_object,query)
 
-  return(new_object)
+  return(sort(new_object))
   ## further optimization: remove ranges shared between
   ## created range object and within-range-object-singles (if any)
 
+}
+
+grextend <- function(x, upstream=0, downstream=0){
+
+  if (any(strand(x) == "*"))
+    warning("'*' ranges were treated as '+'")
+  on_plus <- strand(x) == "+" | strand(x) == "*"
+  new_start <- start(x) - ifelse(on_plus, upstream, downstream)
+  new_end <- end(x) + ifelse(on_plus, downstream, upstream)
+  ranges(x) <- IRanges(new_start, new_end)
+  trim(x)
 }
 
