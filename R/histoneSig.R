@@ -50,12 +50,47 @@ signalSet <- function(){
   signal
 }
 
+signals_from_bigwig <- function(bw_object){
 
-signals_from_bigwig <- function(bw_object, np_object){
+  ##Make object that will be transformed to signal given a bigwig file
+
+  widths <- width(bw_object)
+  starts <- start(bw_object)
+  ends<- end(bw_object)
+  n <- length(bw_object)
+  ## calculate interpeak distance, set right and left orientation
+  ### THIS MUST BE FIXED PER CHROMOSOME
+  interpeak_right <- lead(starts,1) - ends - 1
+  interpeak_left <- c(NA,head(interpeak_right,-1))
+  ## Preallocate list to be populated with variable size signals
+  signals <- vector(mode="list", length=n)
+  signals <- lapply(1:n,function(x) signalSet())
+  #########3 THINK ABOUT PREALLOCATING SIGNALSET'S SIGNAL WIDTH AS YOU ALREADY HAVE PRECOMPUTED WIDTHS
+  ########## WHICH CORRESPOND TO THE SIGNAL'S LENGTH
+  ## maybe https://www.r-bloggers.com/how-to-use-lists-in-r/ for handling lists
+
+  ## Fill rest of values in signalSet object
+  for (i in (1:n)){
+
+    signals[[i]]$signal <- granges_to_continuous(bw_object[i])
+    signals[[i]]$chromosome <- as.character(seqnames(bw_object[i]))
+    signals[[i]]$start <- starts[i]
+    signals[[i]]$end <- ends[i]
+    signals[[i]]$width <- widths[i]
+    signals[[i]]$distance_to_nearest_upstream_peak <-   interpeak_right[i]
+    signals[[i]]$distance_to_nearest_downstream_peak <- interpeak_left[i]
+
+  }
+
+  return(signals)
+
+}
+
+np_signals_from_bigwig <- function(bw_object, np_object){
 
   ##Make object that will be transformed to signal given specified peakfile, bigwig pairs
 
-  ## Calculate overlap vector
+  ## Calculate overlap vectorS
   overlapper <- subsetByOverlaps(bw_object,np_object)
   overlaps <- countOverlaps(np_object, bw_object)
   widths <- width(np_object)
@@ -88,61 +123,11 @@ signals_from_bigwig <- function(bw_object, np_object){
     signals[[i]]$distance_to_nearest_downstream_peak <- interpeak_left[i]
 
   }
-  obtain_extended_parsing_regions <- function(query,target){
-
-    #Given a query and a target, returns an object with target values
-    #that joins regions that share overlap regions in the corresponding query
-
-    ## Subset target's zeros out
-    target$num_overlaps <- countOverlaps(target,query)
-    target_length <- length(target)
-    zeros <- target[target$num_overlaps == 0]
-    #Obtain ranges with at least one overlap
-    target_overlap_ranges <- target[target$num_overlaps > 0]
-
-    which <- findOverlaps(target_overlap_ranges,query)
-    ## Factor
-    factored_indices <- factor(to(which))
-
-    # parsing_index allows us to see which were the query's overlapping ranges with the target
-    parsing_index <- from(which)
-    target_ranges <- target_overlap_ranges[parsing_index,]
-    ## an if will have to be added here to prevent addition of ranges if they're
-    ## longer than a threshold
-    iterator <- data.frame(index = unlist(lapply(split(factored_indices,factored_indices),seq_along)),
-                           target_start = start(target_ranges),
-                           target_end = end(target_ranges),
-                           width = width(target_ranges),
-                           query_overlap_range = factored_indices,
-                           parsing_index = parsing_index,
-                           chr = seqnames(target_ranges))
-
-    ## probably not the most efficient way
-    pre_ranges <- split(iterator, f = iterator$query_overlap_range)
-    new_start <-  sapply(pre_ranges,function(x) x[1,2])
-    new_end <- sapply(pre_ranges,function(x) x[length(x[,3]),3])
-    chr <- sapply(pre_ranges,function(x) x[1,7])
-
-    ## change chr value to dynamically adjust according to chr experiment that's provided
-    new_multiples <- GRanges(seqnames = chr, ranges = IRanges(start = new_start,end = new_end))
-    elementMetadata(zeros) <- NULL
-    new_object <- c(zeros,new_multiples)
-    new_object$width <- width(new_object)
-    new_object$num_overlaps <- countOverlaps(new_object,query)
-
-
-    #### Create subobject to join later
-
-    ##### Sum FROM subjecthit together on subjecthit TO vector
-
-    ## further optimization: remove ranges shared between
-    ## created range object and within-range-object-singles (if any)
-
-  }
 
   return(signals)
 
 }
+
 
 lowpass_filter_signalSet <- function(signalsetlist,n){
 
@@ -265,7 +250,7 @@ obtain_extended_parsing_regions <- function(query,target){
   new_object$intervalwidth <- width(new_object)
   new_object$num_overlaps <- countOverlaps(new_object,query)
 
-  return(sort(new_object))
+  return(unique(sort(new_object)))
   ## further optimization: remove ranges shared between
   ## created range object and within-range-object-singles (if any)
 
