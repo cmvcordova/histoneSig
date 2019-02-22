@@ -14,12 +14,53 @@ import.np <- function(np_file){
 ## base filtering function; imported from github (reference pending)
 lowpass_filter <- function(x,n){stats::filter(x,rep(1/n,n), sides=1)}
 
+check_consecutive <- function(x){
+  any(rle(diff(x))$values == 1)
+}
+
+remove_consecutive <- function(x){
+  ## Should look for an in-place solution
+  split_by_consecutive_intervals <- split(x, cumsum(c(1, diff(x) != 1)))
+  consecutive_intervals <- split_by_consecutive_intervals[rapply(split_by_consecutive_intervals,length,how="list") > 1]
+  consecutive_intervals <- lapply(consecutive_intervals,function(x) min(x) + (max(x) - min(x) +1)/2)
+  return(unlist(modifyList(split_by_consecutive_intervals,consecutive_intervals),use.names=FALSE))
+
+}
+
 ## Function to filter and order genomic ranges by 23 canonical chromosomes
 granges_chr_filter <- function(granges_object){
   granges_object <- granges_object[grep("[chr]+([0-9]{1,2}$|X|Y)",seqnames(granges_object)),]
   seqlevels(granges_object) <- unique(as.character(seqnames(granges_object)))
   granges_object <- sortSeqlevels(granges_object)
   granges_object <- sort(granges_object)
+}
+
+
+####### Same as function from quantmod, only difference
+####### Is the sum is +1 instead of +2
+
+findvalleysone <- function (x, thresh = 0)
+{
+  pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) >
+                 0) + 1
+  if (!missing(thresh)) {
+    if (sign(thresh) > 0)
+      thresh <- -thresh
+    pks[x[pks - 1] - coredata(x[pks]) < thresh]
+  }
+  else pks
+}
+
+findpeaksone <- function (x, thresh = 0)
+{
+  pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) <
+                 0) + 1
+  if (!missing(thresh)) {
+    if (sign(thresh) < 0)
+      thresh <- -thresh
+    pks[x[pks - 1] - coredata(x[pks]) > thresh]
+  }
+  else pks
 }
 
 #Obtain position from ranges
@@ -51,7 +92,7 @@ signalSet <- function(){
 }
 
 signals_from_bigwig <- function(bw_object){
-
+######### currently only as a test function, use only at own risk
   ##Make object that will be transformed to signal given a bigwig file
 
   widths <- width(bw_object)
@@ -146,48 +187,8 @@ lowpass_filter_signalSet <- function(signalsetlist,n){
   return(signalsetlist)
 }
 
-####### Same as function from quantmod, only difference
-####### Is the sum is +1 instead of +2
-
-findvalleysone <- function (x, thresh = 0)
-{
-  pks <- which(diff(sign(diff(x, na.pad = FALSE)), na.pad = FALSE) >
-                 0) + 1
-  if (!missing(thresh)) {
-    if (sign(thresh) > 0)
-      thresh <- -thresh
-    pks[x[pks - 1] - coredata(x[pks]) < thresh]
-  }
-  else pks
-}
-
-
-### Subsetting with only numbers for S3 class is pretty weak, find alternate form
-valley_positions_from_signalsetlist <-function(signalsetlist){
-  ####### REALLY WEAK FUNCTION, REWRITE ASAP
-  #### BREAKS WHEN A SINGLE SIGNALSET IS GIVEN
-  ####### BREAKS ON NON NESTED LISTS
-  ##### Search for default methods on S3 classes
-  #### create methods for both signalSet and signalSetlist
-  ##(or don't, learn to circumvent the list wrapper in signalSets
-
-  ##apply findValleys to returnv alleys in sets
-  valleys <- lapply(lapply(signalsetlist,'[[', 1), function(x){findvalleysone(x)})
-  ## Obtain respective starting positions, subtract 1 since these will be
-  ## added to the valley's index
-  starts <- unlist(lapply(signalsetlist,'[[', 3))-1
-
-  ### subtracting 1 from starts to report valleys correctly
-  ### this should probably not happen here
-  return(Map(`+`, valleys, starts))
-
-}
-
-## REMEMBER TO ADD findpeakspeaks fixed function (+1 instead of +2)
-
 ## Where query is the file to obtain regions with multiple overlaps from
 ## and target is the file that can overlap multiple times with query
-
 
 parse_regions_without_multiple_overlaps <- function(query, target){
   overlap_vector <- countOverlaps(query,target)
@@ -266,4 +267,75 @@ grextend <- function(x, upstream=0, downstream=0){
   ranges(x) <- IRanges(new_start, new_end)
   trim(x)
 }
+
+positions_from_signalsetlist <- function(signalsetlist, points, returns = "positions"){
+  ##### Breaks on non-nested lists (working as intended?)
+  ##### Search for default methods on S3 classes
+  #### create methods for both signalSet and signalSetlist
+  ##(or don't, learn to circumvent the list wrapper in signalSets
+  force(points)
+  if(points == "valleys"){
+    x <- lapply(lapply(signalsetlist,'[[', 1), function(x){findvalleysone(x)})
+  }else if(points == "peaks"){
+    x <- lapply(lapply(signalsetlist,'[[', 1), function(x){findpeaksone(x)})
+  }else{
+    stop("points argument must be specified as either peaks or valleys")
+  }
+  ##apply findValleys to return alleys in sets
+  ## Obtain respective starting positions, subtract 1 since these will be
+  ## added to the valley's index
+  if (returns == "indices"){
+    return(x)
+  }else{
+    ### subtracting 1 from starts to report valleys correctly after sum
+    starts <- unlist(lapply(signalsetlist,'[[', 3))-1
+    return(Map(`+`, x, starts))
+  }
+
+}
+
+
+## Base plotting function
+plotSignal <- function(x, highlight="none", ...){
+  ### Receives a single signalSet
+  ### plotting function to aid in the illustration of signalsets
+  ### will show maxima and/or minima as specified with lines crossing each index point
+  ### ideally, it will also show areas.
+  signal = x[[1]]$signal
+  ## add, if NOT list just take as is
+
+  dt = data.table(position = seq_along(signal), signal = signal)
+  setkey(dt,position)
+
+  p = ggplot(data = dt , aes(x = position, y= signal)) +
+    labs(x="Position",y="Signal Value") +
+    geom_line()
+
+  if(highlight == "valleys"){
+
+    valleys <- data.table(position = unlist(positions_from_signalsetlist(x, "valleys", "indices")))
+    dt[valleys, on = "position", valley_exists := i.position]
+    p = p + geom_point(data= dt[dt$valley_exists>0], color="red") +
+      scale_color_discrete(name = "Point", labels = "Valleys")
+
+  } else if(highlight == "peaks") {
+
+    peaks <- data.table(position = unlist(positions_from_signalsetlist(x, "peaks", "indices")))
+    dt[peaks, on = "position", peak_exists := i.position]
+    p = p + geom_point(data= dt[dt$peak_exists>0], color="blue")
+
+  } else if(highlight =='both') {
+
+    valleys <- data.table(position = unlist(positions_from_signalsetlist(x, "valleys", "indices")))
+    peaks <- data.table(position = unlist(positions_from_signalsetlist(x, "peaks", "indices")))
+    dt[valleys, on = "position", valley_exists := i.position]
+    dt[peaks, on = "position", peak_exists := i.position]
+    p = p + geom_point(data= dt[dt$valley_exists>0], color="red") +
+      geom_point(data= dt[dt$peak_exists>0], color="blue")
+
+  }
+
+  return(p)
+}
+
 
