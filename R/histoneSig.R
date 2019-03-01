@@ -72,10 +72,6 @@ granges_to_continuous <- function(x){
   return(score_vector)
 }
 
-################################# CURRENTLY WORKING ON THIS ##################################
-
-#### IN DEVELOPMENT
-
 signalSet <- function(){
 
   signal <- list(signal = vector(),
@@ -340,6 +336,7 @@ plotSignal <- function(x, highlight="none", ...){
 
 signal_area_descriptors_from_signalsetlist <- function(x, section="interval"){
 
+## Not working with "positions" argument instead of indices
   set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
 
@@ -374,10 +371,13 @@ signal_area_descriptors_from_signalsetlist <- function(x, section="interval"){
 
       area_for_subset <- rep(descriptors$signal_rectangle_area,each=2)
       matches <- match(rep_sorted_index_vector,valleys)
+      ## Keep all valley values, discard peaks
       matches[is.na(matches)==FALSE] <- 1
       match_index <- matches
       match_index[!is.na(matches)] <- cumsum(match_index[!is.na(matches)])
+      ## Assign 0, then subset as logical to keep valley values from area vector
       matches[is.na(matches)] <- 0
+      ## Missing assertion to make valley vector and scores equal
       valley_scores <- rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
       descriptor_list[[i]] <- data.frame(valley = valleys, value = valley_scores)
 
@@ -387,9 +387,41 @@ signal_area_descriptors_from_signalsetlist <- function(x, section="interval"){
 
     }
   }
+  if(returns == "indices"){
+    return(descriptor_list)
+  }else if(returns == "positions"){
 
-  return(descriptor_list)
 
 }
 
+}
+
+## Function useful for determining baseline percentage of overlaps
+## Between a given query and a target
+overlap_baseline <- function(query, target, return_unique = "FALSE"){
+  ## Warning: has no protection for cases where query and target have different
+  ## Seqnames; use with this taken into consideration.
+  ## Currently, user must remove unwanted chromosomes from granges object and make
+  ## Sure they correspond in both datasets
+
+  overlaps = countOverlaps(query,target)
+  if(return_unique == "TRUE") overlaps[overlaps!=0] <- 1 else overlaps
+
+  query_ranges_by_chr <- tibble(chr = as.vector(seqnames(query)), overlaps = overlaps) %>%
+    group_by(chr) %>%
+    summarize_all(sum) %>%
+    add_row(., chr = "total", overlaps = sum(.$overlaps))
+
+
+  target_ranges_by_chr <- tibble(chr = as.vector(seqnames(target)), count = rep(1,length(target))) %>%
+    group_by(chr) %>%
+    summarize_all(sum) %>%
+    add_row(., chr = "total", count = sum(.$count))
+
+  overlap_tibble <- tibble(chr = target_ranges_by_chr$chr,
+                           overlap_percentage = (unlist(query_ranges_by_chr$overlaps) /
+                                                   unlist(target_ranges_by_chr$count)) *100)
+  return(overlap_tibble)
+
+}
 
