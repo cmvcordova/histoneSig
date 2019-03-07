@@ -1,6 +1,6 @@
 ### For functions that still need a little polishing
 
-base_features_from_signalsetlist <- function(x, section="interval", returns = "indices", wraptogRanges = "FALSE"){
+base_features_from_signalsetlist <- function(x, section="interval", returns = "indices", wraptoGRanges = "FALSE"){
   
   set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
@@ -36,13 +36,13 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
     ## Calculate and Assign area base_features
     signal_area_length <- signal[rep_sorted_index_vector]
     base_features$chr <- set_chr[[i]]
-    base_features$signal_area_rectangle_width <- diff(sorted_index_vector)
-    base_features$signal_area_rectangle_height <- abs(rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
-    base_features$signal_rectangle_area <- (base_features$signal_area_rectangle_height * base_features$signal_area_rectangle_width)/2
+    base_features$width <- diff(sorted_index_vector)
+    base_features$height <- abs(rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
+    base_features$area <- (base_features$height * base_features$width)/2
     ## Add metadata
     ## Needs optimizing as well, same as above
-    base_features$nearest_upstream <- set_upstream[[i]]
-    base_features$nearest_downstream <- set_downstream[[i]]
+    base_features$bps_to_next_peak <- set_upstream[[i]]
+    base_features$bps_to_previous_peak <- set_downstream[[i]]
     
     if(returns =="positions"){
       base_features$start <- base_features$start + (set_start[[i]]-1)
@@ -51,9 +51,9 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
 
     if(section == "valley"){
       
-      area_for_subset <- rep(base_features$signal_rectangle_area,each=2)
-      width_for_subset <- rep(base_features$signal_area_rectangle_width, each=2)
-      height_for_subset <- rep(base_features$signal_area_rectangle_height, each=2)
+      area_for_subset <- rep(base_features$area,each=2)
+      width_for_subset <- rep(base_features$width, each=2)
+      height_for_subset <- rep(base_features$height, each=2)
       matches <- match(rep_sorted_index_vector,valleys)
       ## Keep all valley values, discard peaks
       matches[is.na(matches)==FALSE] <- 1
@@ -70,24 +70,39 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
       
       base_feature_list[[i]] <- data.frame(valley = valleys, 
                                            chr = set_chr[[i]],
-                                           area = valley_area,
                                            width = valley_width,
                                            height = valley_height,
-                                           bps_to_next_np = rep(set_upstream[[i]], length(valleys)),
-                                           bps_to_previos_np = rep(set_downstream[[i]], length(valleys)))
-      }else{
-        base_feature_list[[i]] <- base_features
-      }
-    
+                                           area = valley_area,
+                                           bps_to_next_peak = rep(set_upstream[[i]], length(valleys)),
+                                           bps_to_previous_peak = rep(set_downstream[[i]], length(valleys)))
       
-      
+      } else {base_feature_list[[i]] <- base_features}
   }
-
+  
+  if(wraptoGRanges == "TRUE"){
+    ## Simplify valley dataframe names before wrapping 
+    ## as GRanges object
+    if(section == "valley"){
+    base_feature_list <- lapply(base_feature_list, function(x){
+      names(x)[names(x) == "valley"] <- "start"
+      x$end <- x$start
+      return(x)
+    })
+    }
+    
+    base_feature_list <- lapply(base_feature_list, function(x){
+      makeGRangesFromDataFrame(x, seqnames.field = "chr", 
+                             start.field = "start", 
+                             end.field = "end", 
+                             keep.extra.columns=TRUE)
+    })
+    
+  }
+    
   return(base_feature_list)
 
+ 
 }
-  
-
 
 
   
@@ -112,6 +127,17 @@ if (valleys[[i]][1] > peaks[[i]][1]) {
 pos_index_vector <- c(rbind(lead,lagged))
 pos_index_vector_i <- c(rbind(lead[diff(lead)>1],lagged))
 
+## Subset observations that have "valley" in names
+## Setting up start and end vectors to make GRange wrapping easier
+lapply(base_feature_list[unlist(lapply(base_feature_list, 
+                                       function(x) ("valley" %in% names(x))==TRUE))], 
+       function(x){
+         names(x)[names(x) == "valley"] <- "start"
+         x$end <- x$start
+       })
+
 
 ##samplesig
 x<-np_signals_from_bigwig(A549_chr1_bw,A549_ChIP_filtered[1:3])
+
+
