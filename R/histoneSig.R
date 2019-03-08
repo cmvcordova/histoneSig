@@ -400,7 +400,7 @@ signal_area_descriptors_from_signalsetlist <- function(x, section="interval"){
 ## Between a given query and a target
 overlap_baseline <- function(query, target, return_unique = "FALSE"){
   ## Warning: has no protection for cases where query and target have different
-  ## Seqnames; use with this taken into consideration.
+  ## Seqnames; use function with this taken into consideration.
   ## Currently, user must remove unwanted chromosomes from granges object and make
   ## Sure they correspond in both datasets
 
