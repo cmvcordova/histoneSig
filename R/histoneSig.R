@@ -491,9 +491,9 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
       ## Assign 0, then subset as logical to keep valley values from area vector
       matches[is.na(matches)] <- 0
       ## Missing assertion to make valley vector and scores equal
-      valley_area <- rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      valley_extension <- rollapply(extension_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      valley_height <- rollapply(height_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
+      valley_area <- zoo::rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
+      valley_extension <- zoo::rollapply(extension_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
+      valley_height <- zoo::rollapply(height_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
 
       if(returns == "positions") valleys <- valleys + (set_start[[i]]-1) else valleys
 
