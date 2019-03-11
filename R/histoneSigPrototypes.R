@@ -1,7 +1,7 @@
 ### For functions that still need a little polishing
 
 base_features_from_signalsetlist <- function(x, section="interval", returns = "indices", wraptoGRanges = "FALSE"){
-  
+
   set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
   ## Needs optimizing, implement an apply function that can obtain
@@ -20,39 +20,39 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
     ## Access each observation
     peaks <- set_peaks[[i]]
     valleys <- set_valleys[[i]]
-    
+
     ## Remove consecutive ocurrences
     peaks <- if(check_consecutive(peaks)==TRUE) remove_consecutive(peaks) else peaks
     valleys <- if(check_consecutive(valleys)==TRUE) remove_consecutive(valleys) else valleys
-    
+
     sorted_index_vector <- sort(c(peaks,valleys))
     rep_sorted_index_vector <- c(sorted_index_vector[1],
                                  rep(sorted_index_vector[2:(length(sorted_index_vector)-1)],times=1,each=2),
                                  sorted_index_vector[length(unlist(sorted_index_vector))])
-    
+
     base_features <- data.frame(start = rep_sorted_index_vector[seq(1,length(rep_sorted_index_vector),by=2)],
                               end = rep_sorted_index_vector[seq(2,length(rep_sorted_index_vector),by=2)])
-    
+
     ## Calculate and Assign area base_features
     signal_area_length <- signal[rep_sorted_index_vector]
     base_features$chr <- set_chr[[i]]
-    base_features$width <- diff(sorted_index_vector)
+    base_features$extension <- diff(sorted_index_vector)
     base_features$height <- abs(rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
-    base_features$area <- (base_features$height * base_features$width)/2
+    base_features$area <- (base_features$height * base_features$extension)/2
     ## Add metadata
     ## Needs optimizing as well, same as above
     base_features$bps_to_next_peak <- set_upstream[[i]]
     base_features$bps_to_previous_peak <- set_downstream[[i]]
-    
+
     if(returns =="positions"){
       base_features$start <- base_features$start + (set_start[[i]]-1)
       base_features$end <- base_features$end + (set_start[[i]]-1)
       }
 
     if(section == "valley"){
-      
+
       area_for_subset <- rep(base_features$area,each=2)
-      width_for_subset <- rep(base_features$width, each=2)
+      extension_for_subset <- rep(base_features$extension, each=2)
       height_for_subset <- rep(base_features$height, each=2)
       matches <- match(rep_sorted_index_vector,valleys)
       ## Keep all valley values, discard peaks
@@ -63,24 +63,24 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
       matches[is.na(matches)] <- 0
       ## Missing assertion to make valley vector and scores equal
       valley_area <- rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      valley_width <- rollapply(width_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
+      valley_extension <- rollapply(extension_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
       valley_height <- rollapply(height_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      
+
       if(returns == "positions") valleys <- valleys + (set_start[[i]]-1) else valleys
-      
-      base_feature_list[[i]] <- data.frame(valley = valleys, 
+
+      base_feature_list[[i]] <- data.frame(valley = valleys,
                                            chr = set_chr[[i]],
-                                           width = valley_width,
+                                           extension = valley_extension,
                                            height = valley_height,
                                            area = valley_area,
                                            bps_to_next_peak = rep(set_upstream[[i]], length(valleys)),
                                            bps_to_previous_peak = rep(set_downstream[[i]], length(valleys)))
-      
+
       } else {base_feature_list[[i]] <- base_features}
   }
-  
+
   if(wraptoGRanges == "TRUE"){
-    ## Simplify valley dataframe names before wrapping 
+    ## Simplify valley dataframe names before wrapping
     ## as GRanges object
     if(section == "valley"){
     base_feature_list <- lapply(base_feature_list, function(x){
@@ -89,24 +89,24 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
       return(x)
     })
     }
-    
+
     base_feature_list <- lapply(base_feature_list, function(x){
-      makeGRangesFromDataFrame(x, seqnames.field = "chr", 
-                             start.field = "start", 
-                             end.field = "end", 
+      makeGRangesFromDataFrame(x, seqnames.field = "chr",
+                             start.field = "start",
+                             end.field = "end",
                              keep.extra.columns=TRUE)
     })
-    
+
   }
-    
+
   return(base_feature_list)
 
- 
+
 }
 
 
-  
-  
+
+
 ## Misc functions start here
 # Useful for applying anything on rolling, fixed intervals. Imports Zoo package.
 distances_between_points <- rollapply(sorted_index_vector, 2, by = 2, diff, partial = TRUE, align = "left")
@@ -129,13 +129,15 @@ pos_index_vector_i <- c(rbind(lead[diff(lead)>1],lagged))
 
 ## Subset observations that have "valley" in names
 ## Setting up start and end vectors to make GRange wrapping easier
-lapply(base_feature_list[unlist(lapply(base_feature_list, 
-                                       function(x) ("valley" %in% names(x))==TRUE))], 
+lapply(base_feature_list[unlist(lapply(base_feature_list,
+                                       function(x) ("valley" %in% names(x))==TRUE))],
        function(x){
          names(x)[names(x) == "valley"] <- "start"
          x$end <- x$start
        })
 
+## unlist list of granges into single  object
+do.call(c,unlist(x,recursive=FALSE))
 
 ##samplesig
 x<-np_signals_from_bigwig(A549_chr1_bw,A549_ChIP_filtered[1:3])
