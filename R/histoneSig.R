@@ -166,13 +166,30 @@ np_signals_from_bigwig <- function(bw_object, np_object){
 }
 
 
-lowpass_filter_signalSet <- function(signalsetlist,n){
+filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
+  ## Use window_size for equal sized lowpass, fractional for proportional filter
+  ## optional arguments for function
+  ## TODO: add unused protection for dots
+  if(missing(...) == FALSE){
+    dots <- list(...)
+    print(dots)
+  for(i in 1:length(dots)) {
+    assign(x = names(dots)[i], value = dots[[i]])
+  }
+    if('fractional' %in% names(dots)){
+      window_size = ((unlist(lapply(signalsetlist,'[[', 'width'))) / fractional)
+    }
+  }
+  ## Defaults to a lowpass filter
+  if(missing(filter_function)) filter_function <- lowpass_filter else filter_function
 
-  ## There must be a better way to do this
-  ## workaround to R's filter function addition of a time series message
-  ### See if this is removable within the package
+  if(length(window_size) > 1){
+  filtered_signals <- mapply(filter_function, x = lapply(signalsetlist,'[[', 'signal'), n = window_size)
+  }else if(length(window_size) == 1){
+  filtered_signals <- lapply(lapply(signalsetlist,'[[', 'signal'), filter_function, n = window_size)
+  }
+  else{stop("n must be a numeric integer or vector")}
 
-  filtered_signals <- lapply(lapply(signalsetlist,'[[', 1), function(x){lowpass_filter(x,n)})
   filtered_signals <- lapply(filtered_signals, as.numeric)
 
   for (i in 1:length(signalsetlist)){
