@@ -37,7 +37,7 @@ devtools::install_github('semibah/histoneSig')
 
 Starting from a narrow peak (or any other bedfile) and its corresponding bigwig file, we're able to:
 
-### Creating continuous signal objects from bedfile, bigwig pairs.
+### Creating continuous signal objects from bedfile, bigwig pairs
 
 ```R 
 
@@ -50,21 +50,21 @@ parsing_bw_ranges <- granges_chr_filter(np_file)
 ## Parse bigWig bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
 selection = BigWigSelection(parsing_bw_ranges))
 
-## Obtain signals from both of our files your_first_signalset <-
-np_signals_from_bigwig(np_file, bw_file) 
+## Obtain signals from both of our files 
+your_first_signalset <- np_signals_from_bigwig(np_file, bw_file) 
 
 ```  
 
-Behold, a signalSet observation in all its splendor  
+Behold, a `signalSet` observation in all its splendor  
 
 ![signalSet](/readmeimgs/signalsetclassexample.png)  
 
 ### Filter obtained signals as a set  
  
 The default method is a lowpass filter. Said
-filter can take a fixed window size or an equal fraction of each signal in the
-set as a window. You can also pass your own filter functions to
-filter_signalSet() (results may vary).
+filter can take a fixed `window_size` or an equal fraction of each signal in the
+set as a `fractional` window. You can also pass your own filter functions to
+`filter_signalSet()` (results may vary).
 
 ```R 
 
@@ -72,14 +72,14 @@ filtered_signalset <- filter_signalSet(your_first_signalset, fractional = 25)
 
 ```
 
-Now, let's use plotSignal to compare the first signal of the signalsets we've
+Now, let's use `plotSignal()` to compare the first signal of the `signalSet` we've
 obtained.
 
 
 ```R
 
-rawsignalplot <- plotSignal(your_first_signalset[1]) fractionalsignalplot <-
-plotSignal(fractioned_filter_signalset[1])
+rawsignalplot <- plotSignal(your_first_signalset[1]) 
+fractionalsignalplot <- plotSignal(fractioned_filter_signalset[1])
 gridExtra::grid.arrange(rawsignalplot, filteredsignalplot, ncol=2)
 
 ``` 
@@ -97,9 +97,9 @@ plotSignal(fractioned_filter_signalset[1], highlight="both")
 
 ### Calculate geometric features based on per-signal detected valleys and peaks
 
-Calculating base features from a given signalSet is now possible; if posterior
-interaction with GenomicRanges objects is desired, we can set our wraptoGranges
-argument as TRUE; else, we'll obtain a dataframe. Here, we'll specify notable
+Calculating base features from a given `signalSet` is now possible; if posterior
+interaction with `GenomicRanges` objects is desired, we can set our `wraptoGRanges`
+argument as `TRUE`; else, we'll obtain a `data.frame`. Here, we'll specify notable
 valleys found in our signal and their associated geometric features: valley
 width ("extension"), height, area and distances to next and previous peaks in
 the provided bedfile.
@@ -113,11 +113,11 @@ base_features_from_signalsetlist(fractioned_filter_signalset,
 
 ### Represent obtained features alongside signal values and reference sequences per genomic position
 
-Finally, for comparative analyses, we may create a signal feature matrix from a
-signalsetList. Sequence information may be integrated setting the
-provide_sequence parameter to TRUE. We'll obtain a neat signal and geometric
+Finally, for comparative analyses, we may create a `signal_feature_matrix` from a
+`signalSet`. Sequence information may be integrated setting the
+`provide_sequence` parameter to TRUE. We'll obtain a neat signal and geometric
 feature representation, which can then be easily interfaced with other
-libraries/models/packages. 
+R libraries/models/packages. 
 
 ```R 
 
@@ -128,8 +128,7 @@ signal_feature_matrix()
 ## Built With
 
 * [RStudio](https://www.rstudio.com/) - Both desktop and server versions.
-* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html)
-  - For documentation purposes.
+* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html) - For documentation purposes.
 
 ## Contributing
 

@@ -279,6 +279,8 @@ obtain_extended_parsing_regions <- function(query,target){
 
 grextend <- function(x, upstream=0, downstream=0){
 
+  ## Obtained from a biostars post
+
   if (any(strand(x) == "*"))
     warning("'*' ranges were treated as '+'")
   on_plus <- strand(x) == "+" | strand(x) == "*"
@@ -556,5 +558,3 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
 
 
 }
-
-## signal_feature_matrix

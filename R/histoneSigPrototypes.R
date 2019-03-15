@@ -1,5 +1,13 @@
 ### For functions that still need a little polishing
 
+signal_feature_matrix <- function(x){
+  ##
+  seq_intervals <- (lapply(x, '[[', 'start'),lapply(x, '[[', 'end'))
+  set_ends <-
+    set_chr <- lapply(x,'[[','chromosome')
+
+}
+
 
 
 
@@ -41,4 +49,5 @@ x<-np_signals_from_bigwig(A549_chr1_bw,A549_ChIP_filtered)
 chr1_chips <- A549_ChIP_filtered[seqnames(A549_ChIP_filtered) == 'chr1']
 
 x<-np_signals_from_bigwig(A549_chr1_bw,chr1_chips[1128:1130])
+
 
