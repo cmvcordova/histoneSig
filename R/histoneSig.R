@@ -147,12 +147,11 @@ np_signals_from_bigwig <- function(bw_object, np_object){
   #########3 THINK ABOUT PREALLOCATING SIGNALSET'S SIGNAL WIDTH AS YOU ALREADY HAVE PRECOMPUTED WIDTHS
   ########## WHICH CORRESPOND TO THE SIGNAL'S LENGTH
   ## maybe https://www.r-bloggers.com/how-to-use-lists-in-r/ for handling lists
-
   ## Fill rest of values in signalSet object
   for (i in (1:n_peaks)){
 
     signals[[i]]$signal <- granges_to_continuous(overlapper[lead_range_vector[i]:lagging_range_vector[i]])
-    signals[[i]]$chromosome <- as.character(seqnames(overlapper[i]))
+    signals[[i]]$chromosome <- as.character(seqnames(np_object[i]))
     signals[[i]]$start <- starts[i]
     signals[[i]]$end <- ends[i]
     signals[[i]]$width <- widths[i]
@@ -170,9 +169,10 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
   ## Use window_size for equal sized lowpass, fractional for proportional filter
   ## optional arguments for function
   ## TODO: add unused protection for dots
+  ## Breaks if all signals in the signalset are of the same size,
+  ## Possibly fixed with the simplified = FALSE call of mapply (How to introduce it with variable function arguments present?)
   if(missing(...) == FALSE){
     dots <- list(...)
-    print(dots)
   for(i in 1:length(dots)) {
     assign(x = names(dots)[i], value = dots[[i]])
   }
@@ -188,12 +188,20 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
   }else if(length(window_size) == 1){
   filtered_signals <- lapply(lapply(signalsetlist,'[[', 'signal'), filter_function, n = window_size)
   }
-  else{stop("n must be a numeric integer or vector")}
-
+  else{stop("n must be a positive numeric integer or vector")}
+  ## switch TS object back to numeric signal
   filtered_signals <- lapply(filtered_signals, as.numeric)
+  # Replace NAs from timeseries with first real value in new, filtered vector
+  ## find first non NA value in filter to subset later
+  first_real_index <- lapply(filtered_signals,function(x) which(!is.na(x)))
+  first_value_index <- lapply(first_real_index,min)
+  values <- Map('[', filtered_signals,first_value_index)
+  ##
+  filtered_signals <- mapply(function(x,v) replace(x,is.na(x),v), x=filtered_signals,v=values)
 
   for (i in 1:length(signalsetlist)){
-
+  ## assign back into list
+    ## Is there a way to do this with an apply or map?
     signalsetlist[[i]]$signal <- filtered_signals[[i]]
   }
 
@@ -241,7 +249,13 @@ obtain_extended_parsing_regions <- function(query,target){
   # parsing_index allows us to see which were the query's overlapping ranges with the target
   parsing_index <- from(which)
   target_ranges <- target_overlap_ranges[parsing_index,]
-  ## an if will have to be added here to prevent addition of ranges if they're
+  ## an if will have to be added here to prevent adI am putting mine in the authors field - as of now it renders quite raw on the Bioc pages
+  11 h 44
+  but it would be nice to have it as on CRAN
+  ￼I am putting mine in the authors field - as of now it renders quite raw on the Bioc pages
+  11 h 44
+  but it would be nice to have it as on CRAN
+  ￼dition of ranges if they're
   ## longer than a threshold
   iterator <- data.frame(index = unlist(lapply(split(factored_indices,factored_indices),seq_along)),
                          target_start = start(target_ranges),
@@ -467,7 +481,7 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
     peaks <- set_peaks[[i]]
     valleys <- set_valleys[[i]]
 
-    ## Remove consecutive ocurrences
+    ## Remove consecutive ocurrences (is this still necessary?)
     peaks <- if(check_consecutive(peaks)==TRUE) remove_consecutive(peaks) else peaks
     valleys <- if(check_consecutive(valleys)==TRUE) remove_consecutive(valleys) else valleys
 
@@ -549,3 +563,5 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
 
 
 }
+
+base_feature_matrix

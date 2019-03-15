@@ -1,0 +1,28 @@
+R version 3.5.1 (2018-07-02)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.1 LTS
+
+Matrix products: default
+BLAS: /home/semibah/miniconda3/lib/R/lib/libRblas.so
+LAPACK: /home/semibah/miniconda3/lib/R/lib/libRlapack.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8          LC_NUMERIC=es_MX.UTF-8        LC_TIME=es_MX.UTF-8           LC_COLLATE=en_US.UTF-8        LC_MONETARY=es_MX.UTF-8      
+ [6] LC_MESSAGES=en_US.UTF-8       LC_PAPER=es_MX.UTF-8          LC_NAME=es_MX.UTF-8           LC_ADDRESS=es_MX.UTF-8        LC_TELEPHONE=es_MX.UTF-8     
+[11] LC_MEASUREMENT=es_MX.UTF-8    LC_IDENTIFICATION=es_MX.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] BSgenome_1.50.0      Biostrings_2.50.2    XVector_0.22.0       zoo_1.8-3            data.table_1.11.4    dplyr_0.7.6          ggplot2_3.0.0        rtracklayer_1.42.1  
+ [9] GenomicRanges_1.34.0 GenomeInfoDb_1.18.1  IRanges_2.16.0       S4Vectors_0.20.1     BiocGenerics_0.28.0  histoneSig_0.1.0     RevoUtils_11.0.1     RevoUtilsMath_11.0.0
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.18                bindr_0.1.1                 compiler_3.5.1              pillar_1.3.0                plyr_1.8.4                  bitops_1.0-6               
+ [7] tools_3.5.1                 zlibbioc_1.28.0             tibble_1.4.2                gtable_0.2.0                lattice_0.20-35             pkgconfig_2.0.1            
+[13] rlang_0.2.1                 Matrix_1.2-14               rstudioapi_0.7              DelayedArray_0.8.0          yaml_2.2.0                  bindrcpp_0.2.2             
+[19] GenomeInfoDbData_1.2.0      withr_2.1.2                 tidyselect_0.2.4            grid_3.5.1                  glue_1.3.0                  Biobase_2.42.0             
+[25] R6_2.2.2                    XML_3.98-1.16               BiocParallel_1.16.5         purrr_0.2.5                 magrittr_1.5                Rsamtools_1.34.0           
+[31] scales_0.5.0                matrixStats_0.54.0          GenomicAlignments_1.18.1    assertthat_0.2.0            SummarizedExperiment_1.12.0 colorspace_1.3-2           
+[37] labeling_0.3                RCurl_1.95-4.11             lazyeval_0.2.1              munsell_0.5.0               crayon_1.3.4               
