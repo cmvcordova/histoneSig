@@ -28,63 +28,74 @@ Consult the sessionInfo.txt file within this repository to see what's
 being used in a development environment.  
 
 ```R
+
 devtools::install_github('semibah/histoneSig')
+
 ```
 
 ## Demo of current utilities
 
 Starting from a narrow peak (or any other bedfile) and its corresponding bigwig file, we're able to:
 
-Read a signal and produce a list of signalSet objects (signalSetlist)
+### Creating continuous signal objects from bedfile, bigwig pairs.
 
-```R
-## Load our peak or preferred bedfile
-np_file <- import.np('path/to/npfile.bed')
+```R 
+
+## Load our peak or preferred bedfile np_file <-
+import.np('path/to/npfile.bed')
 
 ## Set the ranges we just got obtained to parse relevant bigWig fragments
 parsing_bw_ranges <- granges_chr_filter(np_file)
 
-## Parse bigWig
-bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
-		     	   selection = BigWigSelection(parsing_bw_ranges))
+## Parse bigWig bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
+selection = BigWigSelection(parsing_bw_ranges))
 
-## Obtain signals from both of our files
-your_first_signalset <- np_signals_from_bigwig(np_file, bw_file)
-````  
+## Obtain signals from both of our files your_first_signalset <-
+np_signals_from_bigwig(np_file, bw_file) 
+
+```  
 
 Behold, a signalSet observation in all its splendor  
 
 ![signalSet](/readmeimgs/signalsetclassexample.png)  
 
-We can then filter our signalSet; the default method is a lowpass filter. Said
+### Filter obtained signals as a set  
+ 
+The default method is a lowpass filter. Said
 filter can take a fixed window size or an equal fraction of each signal in the
 set as a window. You can also pass your own filter functions to
 filter_signalSet() (results may vary).
 
-```R
-filtered_signalset <- filter_signalSet(your_first_signalset, fractional = 25)
+```R 
+
+filtered_signalset <- filter_signalSet(your_first_signalset, fractional = 25) 
+
 ```
 
-Now, let's use plotSignal to compare the first signal of the signalsets we've obtained.
+Now, let's use plotSignal to compare the first signal of the signalsets we've
+obtained.
 
 
 ```R
 
-rawsignalplot <- plotSignal(your_first_signalset[1])
-fractionalsignalplot <- plotSignal(fractioned_filter_signalset[1])
+rawsignalplot <- plotSignal(your_first_signalset[1]) fractionalsignalplot <-
+plotSignal(fractioned_filter_signalset[1])
 gridExtra::grid.arrange(rawsignalplot, filteredsignalplot, ncol=2)
 
-```
+``` 
 ![signal plots](/readmeimgs/sidebysideplots.png)
 
 We may also illustrate detected peaks (blue) and valleys (red). These will then
 be used as references to calculate geometric features.
 
 ```R 
-plotSignal(fractioned_filter_signalset[1], highlight="both")
+
+plotSignal(fractioned_filter_signalset[1], highlight="both") 
+
 ```
 ![filtered plot with highlights](/readmeimgs/filteredplothighlights.png)
 
+### Calculate geometric features based on per-signal detected valleys and peaks
 
 Calculating base features from a given signalSet is now possible; if posterior
 interaction with GenomicRanges objects is desired, we can set our wraptoGranges
@@ -94,10 +105,13 @@ width ("extension"), height, area and distances to next and previous peaks in
 the provided bedfile.
 
 ```R 
+
 base_features_from_signalsetlist(fractioned_filter_signalset,
 				 section="valley", returns="positions", wraptoGRanges=TRUE) 
-```
-![valley features as granges](/readmeimgs/basefeatures.png)
+``` 
+![valley features as GRanges](/readmeimgs/basefeatures.png)
+
+### Represent obtained features alongside signal values and reference sequences per genomic position.
 
 Finally, for comparative analyses, we may create a signal feature matrix from a
 signalsetList. Sequence information may be integrated setting the
@@ -105,19 +119,22 @@ provide_sequence parameter to TRUE. We'll obtain a neat signal and geometric
 feature representation, which can then be easily interfaced with other
 libraries/models/packages. 
 
-```R
- signal_feature_matrix() 
+```R 
+
+signal_feature_matrix() 
 
 ```
 
 ## Built With
 
 * [RStudio](https://www.rstudio.com/) - Both desktop and server versions.
-* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html) - For documentation purposes.
+* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html)
+  - For documentation purposes.
 
 ## Contributing
 
-Nothing formal here just yet, [just drop me a line](mailto:cesarmiguelv@gmail.com)
+Nothing formal here just yet, [just drop me a
+line](mailto:cesarmiguelv@gmail.com)
 
 ## Authors
 
@@ -137,8 +154,9 @@ Pending - probably an MIT one in time.
 * Ensenada Center for Scientific Research and Higher Education (CICESE) - Dr.
   Carlos Brizuela & Dr. Ivetth Corona, for their attentive guidance and
 valuable suggestions.  
-* Mexican National Council on Science and Technology (CONACyT) - Generously provided a
-  scholarship for the development of my master's thesis, which gave way to histoneSig.  
+* Mexican National Council on Science and Technology (CONACyT) - Generously
+  provided a scholarship for the development of my master's thesis, which gave
+way to histoneSig.  
 * Mexican Community of Bioinformatic Software Developers (CDSB) - Dr. Leonardo
   Collado-Torres & Dr. Alejandro Reyes, for welcoming me to the CDSB, inspiring
 me to create an R package alongside my thesis and general guidance.  
