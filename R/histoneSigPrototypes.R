@@ -39,7 +39,6 @@ do.call(c,unlist(x,recursive=FALSE))
 ##samplesig
 x<-np_signals_from_bigwig(A549_chr1_bw,A549_ChIP_filtered)
 chr1_chips <- A549_ChIP_filtered[seqnames(A549_ChIP_filtered) == 'chr1']
-  1128
 
-x<-np_signals_from_bigwig(A549_chr1_bw,chr1_chips[1:3])
+x<-np_signals_from_bigwig(A549_chr1_bw,chr1_chips[1128:1130])
 

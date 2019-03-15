@@ -33,12 +33,76 @@ devtools::install_github('semibah/histoneSig')
 
 ## Demo of current utilities
 
-importing bw,np
-reading a signal + plot
-signal filtering + plot
-geometric feature extraction (basefeatures; show df +granges)
-easy to use implementation for comparing between regions of generated signals from (basefeaturedf, showdf +granges)
-different -seq experiments, against a reference genome or both. 
+Starting from a narrow peak (or any other bedfile) and its corresponding bigwig file, we're able to:
+
+Read a signal and produce a list of signalSet objects (signalSetlist)
+
+```R
+## Load our peak or preferred bedfile
+np_file <- import.np('path/to/npfile.bed')
+
+## Set the ranges we just got obtained to parse relevant bigWig fragments
+parsing_bw_ranges <- granges_chr_filter(np_file)
+
+## Parse bigWig
+bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
+		     	   selection = BigWigSelection(parsing_bw_ranges))
+
+## Obtain signals from both of our files
+your_first_signalset <- np_signals_from_bigwig(np_file, bw_file)
+````  
+
+Behold, a signalSet observation in all its splendor  
+
+![signalSet](/readmeimgs/signalsetclassexample.png)  
+
+We can then filter our signalSet; the default method is a lowpass filter. Said
+filter can take a fixed window size or an equal fraction of each signal in the
+set as a window. You can also pass your own filter functions to
+filter_signalSet() (results may vary).
+
+```R
+filtered_signalset <- filter_signalSet(your_first_signalset, fractional = 25)
+```
+
+Now, let's use plotSignal to compare the first signal of the signalsets we've obtained.
+
+
+```R
+
+rawsignalplot <- plotSignal(your_first_signalset[1])
+fractionalsignalplot <- plotSignal(fractioned_filter_signalset[1])
+gridExtra::grid.arrange(rawsignalplot, filteredsignalplot, ncol=2)
+
+```
+![signal plots](/readmeimgs/sidebysideplots.png)
+
+We may also illustrate detected peaks (blue) and valleys (red). These will then be used as references to calculate geometric features.
+
+```R 
+plotSignal(fractioned_filter_signalset[1], highlight="both")
+```
+![filtered plot with highlights](/readmeimgs/filteredplothighlights.png)
+
+
+Calculating base features from a given signalSet is now possible; if posterior interaction with GenomicRanges objects is desired,
+we can set our wraptoGranges argument as TRUE; else, we'll obtain a dataframe. Here, we'll specify notable valleys found in our signal and their associated values: valley width ("extension"), height, area and distances to next and previous peaks in the provided bedfile.
+
+```R 
+base_features_from_signalsetlist(fractioned_filter_signalset,section="valley",returns="positions",wraptoGRanges=TRUE) 
+```
+![valley features as granges](/readmeimgs/basefeatures.png)
+
+Finally, for comparative analyses, we may create a signal feature matrix from a
+signalsetList. Sequence information may be integrated setting the
+provide_sequence parameter to TRUE. We'll obtain a neat signal and geometric
+feature representation, which can then be easily interfaced with other
+libraries/models/packages. 
+
+```R
+ signal_feature_matrix() 
+
+```
 
 ## Built With
 
@@ -47,13 +111,16 @@ different -seq experiments, against a reference genome or both.
 
 ## Contributing
 
-Nothing formal here, [just drop me a line](mailto:cesarmiguelv@gmail.com)
+Nothing formal here just yet, [just drop me a line](mailto:cesarmiguelv@gmail.com)
 
 ## Authors
 
-* **Cesar Miguel Valdez** - *Initial work* - [semibah](https://github.com/semibah)
+* **César Miguel Valdez Córdova** - *Initial work* -
+  [semibah](https://github.com/semibah)
 
-See also the list of [contributors](https://github.com/semibah/histoneSig/contributors) who participated in this project. Currently empty; you could be the first!
+See also the list of
+[contributors](https://github.com/semibah/histoneSig/contributors) who
+participated in this project. Currently empty; you could be the first one!
 
 ## License
 
@@ -64,10 +131,10 @@ Pending - probably an MIT one in time.
 * Ensenada Center for Scientific Research and Higher Education (CICESE) - Dr.
   Carlos Brizuela & Dr. Ivetth Corona, for their attentive guidance and
 valuable suggestions.  
-* National Council on Science and Technology (CONACyT) - Generously provided a
-  scholarship.  
+* Mexican National Council on Science and Technology (CONACyT) - Generously provided a
+  scholarship for the development of my master's thesis, which gave way to histoneSig.  
 * Mexican Community of Bioinformatic Software Developers (CDSB) - Dr. Leonardo
-  Collado-Torres & Dr. Alejandro Reyes, for welcoming me to CDSB, inspiring me
-to create an Rpackage alongside my thesis and general guidance.  
+  Collado-Torres & Dr. Alejandro Reyes, for welcoming me to the CDSB, inspiring
+me to create an R package alongside my thesis and general guidance.  
 * The internet - it can be a pretty nice place, after all.  
 
