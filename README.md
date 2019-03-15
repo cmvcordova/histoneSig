@@ -111,7 +111,7 @@ base_features_from_signalsetlist(fractioned_filter_signalset,
 ``` 
 ![valley features as GRanges](/readmeimgs/basefeatures.png)
 
-### Represent obtained features alongside signal values and reference sequences per genomic position.
+### Represent obtained features alongside signal values and reference sequences per genomic position
 
 Finally, for comparative analyses, we may create a signal feature matrix from a
 signalsetList. Sequence information may be integrated setting the
