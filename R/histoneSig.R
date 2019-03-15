@@ -169,7 +169,8 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
   ## Use window_size for equal sized lowpass, fractional for proportional filter
   ## optional arguments for function
   ## TODO: add unused protection for dots
-  ## Breaks if all signals in the signalset are of the same size,
+  ## BREAKS IF ALL SIGNALS IN THE SIGNALSET ARE THE SAME SIZE
+  ## Doesn't work with singles
   ## Possibly fixed with the simplified = FALSE call of mapply (How to introduce it with variable function arguments present?)
   if(missing(...) == FALSE){
     dots <- list(...)
@@ -195,10 +196,9 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
   ## find first non NA value in filter to subset later
   first_real_index <- lapply(filtered_signals,function(x) which(!is.na(x)))
   first_value_index <- lapply(first_real_index,min)
-  values <- Map('[', filtered_signals,first_value_index)
+  values <- Map('[', filtered_signals, first_value_index)
   ##
-  filtered_signals <- mapply(function(x,v) replace(x,is.na(x),v), x=filtered_signals,v=values)
-
+  filtered_signals <- mapply(function(x,v) replace(x,is.na(x),v), x=filtered_signals ,v=values)
   for (i in 1:length(signalsetlist)){
   ## assign back into list
     ## Is there a way to do this with an apply or map?
@@ -249,13 +249,6 @@ obtain_extended_parsing_regions <- function(query,target){
   # parsing_index allows us to see which were the query's overlapping ranges with the target
   parsing_index <- from(which)
   target_ranges <- target_overlap_ranges[parsing_index,]
-  ## an if will have to be added here to prevent adI am putting mine in the authors field - as of now it renders quite raw on the Bioc pages
-  11 h 44
-  but it would be nice to have it as on CRAN
-  ￼I am putting mine in the authors field - as of now it renders quite raw on the Bioc pages
-  11 h 44
-  but it would be nice to have it as on CRAN
-  ￼dition of ranges if they're
   ## longer than a threshold
   iterator <- data.frame(index = unlist(lapply(split(factored_indices,factored_indices),seq_along)),
                          target_start = start(target_ranges),
@@ -564,4 +557,4 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
 
 }
 
-base_feature_matrix
+## signal_feature_matrix

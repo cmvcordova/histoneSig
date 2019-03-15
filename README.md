@@ -24,7 +24,7 @@ interoperation with related analysis tools.
 
 Get R 3.5.1.  
 
-Consult the sessionInfo.txt file within this repository to see which files are
+Consult the sessionInfo.txt file within this repository to see what's
 being used in a development environment.  
 
 ```R
@@ -77,7 +77,8 @@ gridExtra::grid.arrange(rawsignalplot, filteredsignalplot, ncol=2)
 ```
 ![signal plots](/readmeimgs/sidebysideplots.png)
 
-We may also illustrate detected peaks (blue) and valleys (red). These will then be used as references to calculate geometric features.
+We may also illustrate detected peaks (blue) and valleys (red). These will then
+be used as references to calculate geometric features.
 
 ```R 
 plotSignal(fractioned_filter_signalset[1], highlight="both")
@@ -85,11 +86,16 @@ plotSignal(fractioned_filter_signalset[1], highlight="both")
 ![filtered plot with highlights](/readmeimgs/filteredplothighlights.png)
 
 
-Calculating base features from a given signalSet is now possible; if posterior interaction with GenomicRanges objects is desired,
-we can set our wraptoGranges argument as TRUE; else, we'll obtain a dataframe. Here, we'll specify notable valleys found in our signal and their associated values: valley width ("extension"), height, area and distances to next and previous peaks in the provided bedfile.
+Calculating base features from a given signalSet is now possible; if posterior
+interaction with GenomicRanges objects is desired, we can set our wraptoGranges
+argument as TRUE; else, we'll obtain a dataframe. Here, we'll specify notable
+valleys found in our signal and their associated geometric features: valley
+width ("extension"), height, area and distances to next and previous peaks in
+the provided bedfile.
 
 ```R 
-base_features_from_signalsetlist(fractioned_filter_signalset,section="valley",returns="positions",wraptoGRanges=TRUE) 
+base_features_from_signalsetlist(fractioned_filter_signalset,
+				 section="valley", returns="positions", wraptoGRanges=TRUE) 
 ```
 ![valley features as granges](/readmeimgs/basefeatures.png)
 
