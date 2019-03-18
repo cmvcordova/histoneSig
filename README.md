@@ -79,7 +79,7 @@ obtained.
 ```R
 
 rawsignalplot <- plotSignal(your_first_signalset[1]) 
-fractionalsignalplot <- plotSignal(fractioned_filter_signalset[1])
+filteredsignalplot <- plotSignal(filtered_signalset[1])
 gridExtra::grid.arrange(rawsignalplot, filteredsignalplot, ncol=2)
 
 ``` 
@@ -90,7 +90,7 @@ be used as references to calculate geometric features.
 
 ```R 
 
-plotSignal(fractioned_filter_signalset[1], highlight="both") 
+plotSignal(filtered_signalset[1], highlight="both") 
 
 ```
 ![filtered plot with highlights](/readmeimgs/filteredplothighlights.png)
@@ -106,7 +106,7 @@ the provided bedfile.
 
 ```R 
 
-base_features_from_signalsetlist(fractioned_filter_signalset,
+base_features_from_signalsetlist(filtered_signalset,
 				 section="valley", returns="positions", wraptoGRanges=TRUE) 
 ``` 
 ![valley features as GRanges](/readmeimgs/basefeatures.png)
