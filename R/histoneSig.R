@@ -455,7 +455,8 @@ overlap_baseline <- function(query, target, return_unique = "FALSE"){
 ## Still prototyping with it, use at own risk
 ## Width calculation is off.
 
-base_features_from_signalsetlist <- function(x, section="interval", returns = "indices", wraptoGRanges = "FALSE"){
+base_features_from_signalsetlist <- function(x, section= "interval", returns = "indices",
+                                             wraptoGRanges = "FALSE", unwrap = "FALSE"){
 
   set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
@@ -532,6 +533,8 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
                                            bps_to_previous_peak = rep(set_downstream[[i]], length(valleys)))
 
     } else {base_feature_list[[i]] <- base_features}
+    ## Remove valleys with area = 0
+    base_feature_list[[i]] <- base_feature_list[[i]][base_feature_list[[i]]$area!=0,]
   }
 
   if(wraptoGRanges == "TRUE"){
@@ -553,6 +556,12 @@ base_features_from_signalsetlist <- function(x, section="interval", returns = "i
     })
 
   }
+
+  if(wraptoGRanges == "TRUE" & unwrap == "TRUE"){
+  base_feature_list <- sort(do.call(c, unlist(base_feature_list,recursive=FALSE)))
+  } else if(unwrap == "TRUE"){
+  base_feature_list <- bind_rows(base_feature_list)
+  } else{base_feature_list}
 
   return(base_feature_list)
 
