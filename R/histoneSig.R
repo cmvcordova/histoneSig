@@ -360,68 +360,6 @@ plotSignal <- function(x, highlight="none", ...){
   return(p)
 }
 
-signal_area_descriptors_from_signalsetlist <- function(x, section="interval"){
-
-## Not working with "positions" argument instead of indices
-  set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
-  set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
-
-  signalset_length <- length(x)
-  descriptor_list <- vector(mode ="list", length = signalset_length)
-
-  for(i in 1:signalset_length){
-    ## Parse bw signal values associated to np interval
-    signal <- x[[i]]$signal
-    ## Access each observation
-    peaks <- set_peaks[[i]]
-    valleys <- set_valleys[[i]]
-
-    ## Remove consecutive ocurrences
-    peaks <- if(check_consecutive(peaks)==TRUE) remove_consecutive(peaks) else peaks
-    valleys <- if(check_consecutive(valleys)==TRUE) remove_consecutive(valleys) else valleys
-
-    sorted_index_vector <- sort(c(peaks,valleys))
-    rep_sorted_index_vector <- c(sorted_index_vector[1],
-                                 rep(sorted_index_vector[2:(length(sorted_index_vector)-1)],times=1,each=2),
-                                 sorted_index_vector[length(unlist(sorted_index_vector))])
-
-    descriptors <- data.frame(start = rep_sorted_index_vector[seq(1,length(rep_sorted_index_vector),by=2)],
-                              end = rep_sorted_index_vector[seq(2,length(rep_sorted_index_vector),by=2)])
-
-    signal_area_length <- signal[rep_sorted_index_vector]
-    descriptors$signal_area_rectangle_width <- diff(sorted_index_vector)
-    descriptors$signal_area_rectangle_length <- abs(rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
-    descriptors$signal_rectangle_area <- (descriptors$signal_area_rectangle_length * descriptors$signal_area_rectangle_width)/2
-
-    if(section == "valley area"){
-
-      area_for_subset <- rep(descriptors$signal_rectangle_area,each=2)
-      matches <- match(rep_sorted_index_vector,valleys)
-      ## Keep all valley values, discard peaks
-      matches[is.na(matches)==FALSE] <- 1
-      match_index <- matches
-      match_index[!is.na(matches)] <- cumsum(match_index[!is.na(matches)])
-      ## Assign 0, then subset as logical to keep valley values from area vector
-      matches[is.na(matches)] <- 0
-      ## Missing assertion to make valley vector and scores equal
-      valley_scores <- rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      descriptor_list[[i]] <- data.frame(valley = valleys, value = valley_scores)
-
-    }else if(section == "interval"){
-
-      descriptor_list[[i]] <- descriptors
-
-    }
-  }
-  if(returns == "indices"){
-    return(descriptor_list)
-  }else if(returns == "positions"){
-
-
-}
-
-}
-
 ## Function useful for determining baseline percentage of overlaps
 ## Between a given query and a target
 overlap_baseline <- function(query, target, return_unique = "FALSE"){
@@ -507,25 +445,28 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
 
     if(section == "valley"){
 
-      area_for_subset <- rep(base_features$area,each=2)
-      extension_for_subset <- rep(base_features$extension, each=2)
-      height_for_subset <- rep(base_features$height, each=2)
+      area_for_subset <- base_features$area
+      extension_for_subset <- base_features$extension
+      height_for_subset <- base_features$height
       matches <- match(rep_sorted_index_vector,valleys)
+      groups <- matches
       ## Keep all valley values, discard peaks
       matches[is.na(matches)==FALSE] <- 1
       match_index <- matches
       match_index[!is.na(matches)] <- cumsum(match_index[!is.na(matches)])
       ## Assign 0, then subset as logical to keep valley values from area vector
-      matches[is.na(matches)] <- 0
       ## Missing assertion to make valley vector and scores equal
-      valley_area <- zoo::rollapply(area_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      valley_extension <- zoo::rollapply(extension_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
-      valley_height <- zoo::rollapply(height_for_subset[as.logical(matches)], 2, by = 2, sum, partial = TRUE, align = "left")
+      ## calculate valley areas, extensions and heights on observations that contain both valleys
+      valley_area <- as.vector(tapply(area_for_subset[match_index],groups,sum,na.rm=TRUE))
+      ## Extension
+      valley_extension <-  as.vector(tapply(extension_for_subset[match_index],groups,sum,na.rm=TRUE))
+      ## Height
+      valley_height <-  as.vector(tapply(height_for_subset[match_index],groups,sum,na.rm=TRUE))
 
       if(returns == "positions") valleys <- valleys + (set_start[[i]]-1) else valleys
 
       base_feature_list[[i]] <- data.frame(valley = valleys,
-                                           chr = set_chr[[i]],
+                                           chr = rep(set_chr[[i]],length(valleys)),
                                            extension = valley_extension,
                                            height = valley_height,
                                            area = valley_area,
