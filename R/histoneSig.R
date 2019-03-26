@@ -508,3 +508,48 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
 
 
 }
+
+build_seq_feature_matrix <- function(..., refgenome){
+  ## where ... are genomicranges objects; each object supplied
+  ## Will have its respective column in the final matrix representation
+  ### ALL OBJECTS MUST BE ANNOTATED ACCORDING TO THE SAME REFERENCE GENOME
+
+  force(refgenome)   ### Checking a valid genome was supplied
+  if(refgenome %in% BSgenome::available.genomes()){
+    refgenome
+  }else{
+    stop("Provided reference genome not available.
+         Consult available options with BSgenome::available.genomes()")}
+  require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
+  genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
+  ### to do: add option for custom genomes
+
+  x = list(...)
+  ## Build an index to parse the aggregate sequence of all GRanges objects.
+  master_granges_index <- lapply(x, function(x) GenomicRanges::reduce(x))
+  master_granges_index <- unique(sort(do.call(c, unlist(master_granges_index,recursive=FALSE))))
+  ## Making sure valleys are included (not required if valleys were determined from any
+  ## object in "x", but still here for completion
+  #if(missing(valleyGranges) == "FALSE")
+  #master_granges_index <- unique(sort(c(master_granges_index,reduce(valleyGRanges))))
+
+  ## mapply's simplify = TRUE argument not working as expected, circumvent with unlists.
+  ## store chromosome seqnames for index
+  master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_granges_index)),width(master_granges_index)), use.names=FALSE)
+  master_granges_index_seqs <- as.character(getSeq(genome, master_granges_index))   ## Parse before deconstructing vector
+  master_granges_index_seqs <- unlist(strsplit(paste(master_granges_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
+
+  ### Create main bp vector
+  master_granges_index <- unlist(mapply(`:`, start(master_granges_index), end(master_granges_index)), use.names=FALSE)
+
+  ## one hot encoding of previously obtained sequences
+  bases <- c('A','C','G','T')
+  tokenizer <- text_tokenizer(char_level = TRUE) %>%
+  fit_text_tokenizer(bases)
+  master_seq_matrix <- texts_to_matrix(tokenizer,master_granges_index_seqs,mode="binary")
+  master_seq_matrix <- as.data.table(master_seq_matrix[,-1])
+  setnames(master_seq_matrix, bases)
+  master_seq_matrix <- data.table(master_granges_index,master_granges_seqnames,master_seq_matrix) ## Join into index + seq matrix
+
+  return(master_seq_matrix)
+}

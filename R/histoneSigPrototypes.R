@@ -1,14 +1,19 @@
 ### For functions that still need a little polishing
 
-#signal_feature_matrix <- function(x){
-#  ##
-#  seq_intervals <- (lapply(x, '[[', 'start'),lapply(x, '[[', 'end'))
-#  set_ends <-
-#    set_chr <- lapply(x,'[[','chromosome')
-#
-#}
 
+feature_matrix_from_signalSet <- function(signalSet){
 
+}
+
+# Parse granges objects as provided and join to main index.
+#### make sub data tables and then join to main matrix
+for(for i in x){}
+
+master_seq_matrix[miniseq, V2 := i.V2, on =c("master_granges_index", "master_granges_seqnames")]
+## miniseq is current sub matrix, V2 is a placeholder name for signal value col
+rm(test_seq_matrix)
+test_matrix <- na.omit(test_matrix)
+setkey(test_matrix,V1)
 
 
 ## Misc functions start here
