@@ -113,32 +113,41 @@ base_features_from_signalsetlist(filtered_signalset,
 
 ### Represent obtained features alongside signal values and reference sequences per genomic position
 
-Finally, for comparative analyses, we may create a `signal_feature_matrix` from a
-`signalSet`. Sequence information may be integrated setting the
-`provide_sequence` parameter to TRUE. We'll obtain a neat signal and geometric
-feature representation, which can then be easily interfaced with other
+Finally, for comparative analyses, we may create a feature table from a
+`GRanges` or `signalSet`. Sequence information may be integrated, as a one-hot matrix, setting
+the `include_sequence` parameter to `TRUE`. We'll obtain a neat representation
+which may or may not include neat signal and geometric features in its
+metadata, as a `data.table`. This can then be easily interfaced with other
 R libraries/models/packages. 
 
+So, from a given `GRanges` (or vanilla `signalSet`) of the following kind:  
+
+![generic GRanges object](/readmeimgs/genericgranges.png)
+
+After running the following command,
 ```R 
 
-signal_feature_matrix() 
+build_feature_table(generic_GRanges, metadata_as_features = TRUE, include_sequence =
+TRUE,  refgenome = "BSgenome.Hsapiens.UCSC.hg38")
+ 
 
 ```
+We'd obtain a `data.table` like this
+
+![feature table](/readmeimgs/genericfeaturetable.png)
 
 ## Built With
 
 * [RStudio](https://www.rstudio.com/) - Both desktop and server versions.
-* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html) - For documentation purposes.
+* [roxygen2](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html)- For documentation purposes.
 
 ## Contributing
 
-Nothing formal here just yet, [just drop me a
-line](mailto:cesarmiguelv@gmail.com)
+Nothing formal here just yet, [just drop me a line](mailto:cesarmiguelv@gmail.com)
 
 ## Authors
 
-* **César Miguel Valdez Córdova** - *Initial work* -
-  [semibah](https://github.com/semibah)
+* **César Miguel Valdez Córdova** - *Initial work* - [semibah](https://github.com/semibah)
 
 See also the list of
 [contributors](https://github.com/semibah/histoneSig/contributors) who
