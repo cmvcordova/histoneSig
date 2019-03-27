@@ -3,7 +3,8 @@ Immediate
 - Get a robust, working implementation of signal_feature_matrix  
 - Investigate why functions break when equal signals are provided (mapply), and
   when single observation signalsets are provided.
-- Add parameter to signal_feature_matrix for different genomes based on BSgenome
+- Add parameter to signal_feature_matrix for different genomes based on
+  BSgenome-
 
 Can wait a bit 
 
@@ -14,7 +15,9 @@ to signal_feature_matrix and automatically create columns per experiment.  OR a
 way to join only the experiment-exclusive signal column from
 signal_feature_matrix objects (Figure out which is more or less computationally
 expensive).
-- np_signals_from_bigwig should have a way to read the queried intervals only, instead of loading all of the bigwig file into memory and then segment from it.
+- np_signals_from_bigwig should have a way to read the queried intervals only,
+  instead of loading all of the bigwig file into memory and then segment from
+it.
 
 Long Term
 

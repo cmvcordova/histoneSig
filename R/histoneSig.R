@@ -431,7 +431,7 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
     signal_area_length <- signal[rep_sorted_index_vector]
     base_features$chr <- set_chr[[i]]
     base_features$extension <- diff(sorted_index_vector)
-    base_features$height <- abs(rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
+    base_features$height <- abs(zoo::rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
     base_features$area <- (base_features$height * base_features$extension)/2
     ## Add metadata
     ## Needs optimizing as well, same as above
@@ -509,47 +509,92 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
 
 }
 
-build_seq_feature_matrix <- function(..., refgenome){
-  ## where ... are genomicranges objects; each object supplied
-  ## Will have its respective column in the final matrix representation
-  ### ALL OBJECTS MUST BE ANNOTATED ACCORDING TO THE SAME REFERENCE GENOME
+build_feature_matrix <- function(x, metadata_as_features = FALSE, include_sequence = FALSE,  refgenome){
+### To do: Generalize; merge this function with signal_matrix_from_signalSet to make it able to receive
+  ## signalSets or Granges, whichever is supplied.
 
-  force(refgenome)   ### Checking a valid genome was supplied
-  if(refgenome %in% BSgenome::available.genomes()){
-    refgenome
-  }else{
-    stop("Provided reference genome not available.
-         Consult available options with BSgenome::available.genomes()")}
-  require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
-  genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
-  ### to do: add option for custom genomes
+  ## This check must go, should be a feature of the experimental parsing function
+  if(class(x) != "GRanges" & class(x) != "list"){
+    stop('Must provide a valid GRanges or signalSet list')
+  } else if(class(x) == "list"){
+      if(all(sapply(x, class) == 'signalSet') == "FALSE"){
+    stop("List provided has at least one none signalSet object")}
+    }
+  ## Is there a better way to stop doing this at the beginning of each signalset associated function?
+  ## A signalset accessor of sorts?
+  if(class(x) == 'list'){
 
-  x = list(...)
+  starts <- sapply(signalSet,'[[','start')
+  ends <- sapply(signalSet,'[[','end')
+  chrs <- sapply(signalSet,'[[','chromosome')
+  widths <- sapply(signalSet, '[[', 'width')
+  chromosome <- unlist(mapply(rep,chrs,widths),use.names=FALSE)
+  master_index <- unlist(mapply(`:`, starts, ends), use.names=FALSE)
+  master_matrix <- data.table(master_index = master_index, chromosome = chromosome, signal = unlist(sapply(signalSet,'[[','signal')))
+  } else if(class(x) == "GRanges"){
   ## Build an index to parse the aggregate sequence of all GRanges objects.
-  master_granges_index <- lapply(x, function(x) GenomicRanges::reduce(x))
-  master_granges_index <- unique(sort(do.call(c, unlist(master_granges_index,recursive=FALSE))))
-  ## Making sure valleys are included (not required if valleys were determined from any
-  ## object in "x", but still here for completion
-  #if(missing(valleyGranges) == "FALSE")
-  #master_granges_index <- unique(sort(c(master_granges_index,reduce(valleyGRanges))))
+  master_grange <- unique(sort(GenomicRanges::reduce(x)))
+  master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_grange)),width(master_grange)), use.names=FALSE)   ## obtain chrnames for index
+  master_index <- unlist(mapply(`:`, start(master_grange), end(master_grange)), use.names=FALSE)   ## Create main bp vector
+  # Store as a matrix to add further sections, depending on user supplied preferences
+  master_matrix <- data.table(master_index, chromosome=master_granges_seqnames)}
 
-  ## mapply's simplify = TRUE argument not working as expected, circumvent with unlists.
-  ## store chromosome seqnames for index
-  master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_granges_index)),width(master_granges_index)), use.names=FALSE)
-  master_granges_index_seqs <- as.character(getSeq(genome, master_granges_index))   ## Parse before deconstructing vector
-  master_granges_index_seqs <- unlist(strsplit(paste(master_granges_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
-
-  ### Create main bp vector
-  master_granges_index <- unlist(mapply(`:`, start(master_granges_index), end(master_granges_index)), use.names=FALSE)
+  if(include_sequence == TRUE){
+    force(refgenome)   ### Checking a valid genome was supplied
+    if(refgenome %in% BSgenome::available.genomes()){
+      refgenome
+    }else{
+      stop("Provided reference genome not available.
+         Consult available options with BSgenome::available.genomes()")}
+    require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
+    genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
+  ### to do: add option for custom genomes
+  master_index_seqs <- as.character(getSeq(genome, master_grange))   ## Parse before deconstructing vector
+  master_index_seqs <- unlist(strsplit(paste(master_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
 
   ## one hot encoding of previously obtained sequences
   bases <- c('A','C','G','T')
   tokenizer <- text_tokenizer(char_level = TRUE) %>%
-  fit_text_tokenizer(bases)
-  master_seq_matrix <- texts_to_matrix(tokenizer,master_granges_index_seqs,mode="binary")
+    fit_text_tokenizer(bases)
+  master_seq_matrix <- texts_to_matrix(tokenizer,master_index_seqs,mode="binary")
   master_seq_matrix <- as.data.table(master_seq_matrix[,-1])
   setnames(master_seq_matrix, bases)
-  master_seq_matrix <- data.table(master_granges_index,master_granges_seqnames,master_seq_matrix) ## Join into index + seq matrix
+  master_matrix <- data.table(master_matrix,master_seq_matrix) ## Join into index + seq matrix
+  }
 
-  return(master_seq_matrix)
+  if(metadata_as_features == TRUE){
+    metadata_features <- as.data.table(elementMetadata(x))
+    metadata_features <- metadata_features[rep(seq_len(nrow(metadata_features)), width(x)),]
+    master_matrix <- data.table(master_matrix,metadata_features)
+  }
+
+  return(master_matrix)
 }
+
+
+###### Experimental | Trying to build a parser to stop:
+## 1) Is it a signalSet list or Signalset? discrepancy
+## 2) stop the sapply line every single time we need an
+## Attribute from our signalSet
+### Todo: make to_parse able to receive multiple arguments.
+
+parse_signalSet <- function(x, to_parse){
+
+  ## Check if we're working with a full list of signalSet
+  if(class(x) != "list" & class(x) != "signalSet"){
+    stop('Must provide a valid signalSet list or signalSet to parse')
+  } else if (all(sapply(x, class) == 'signalSet') == "FALSE"){
+    stop("List provided has at least one none signalSet object")
+  }
+
+  force(to_parse)
+
+  if(is.list(signalSet) == TRUE){
+    parser <- function(to_parse) sapply(x,'[[', to_parse)
+  } else
+    parser <- function(to_parse) x$to_parse
+
+  return(parser(to_parse))
+}
+
+

@@ -1,15 +1,13 @@
 ### For functions that still need a little polishing
 
-
-feature_matrix_from_signalSet <- function(signalSet){
-
-}
+main <- build_seq_feature_matrix(ATAC_positive_ChIP[1:3], refgenome = "BSgenome.Hsapiens.UCSC.hg38")
+mini <- np_signals_from_bigwig(bw_object = A549_chip_bw, np_object = ATAC_positive_ChIP[1:3])
+mini <- signal_matrix_from_signalSet(mini)
+main[mini, signal := i.signal, on =c("master_index", "chromosome")]
 
 # Parse granges objects as provided and join to main index.
 #### make sub data tables and then join to main matrix
-for(for i in x){}
 
-master_seq_matrix[miniseq, V2 := i.V2, on =c("master_granges_index", "master_granges_seqnames")]
 ## miniseq is current sub matrix, V2 is a placeholder name for signal value col
 rm(test_seq_matrix)
 test_matrix <- na.omit(test_matrix)
