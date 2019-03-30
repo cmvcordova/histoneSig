@@ -138,16 +138,21 @@ np_signals_from_bigwig <- function(bw_object, np_object){
   lagging_range_vector <- cumsum(overlaps)
   lead_range_vector<- c(1,lagging_range_vector+1)[1:n_peaks]
   ## calculate interpeak distance, set right and left orientation
-  ### THIS MUST BE FIXED PER CHROMOSOME
   interpeak_right <- lead(start(np_object),1) - end(np_object) - 1
   interpeak_left <- c(NA,head(interpeak_right,-1))
+  ## Remove NAs caused due to being the first or last peak in chromosome
+  interpeak_right[is.na(interpeak_right)] <- 0
+  interpeak_left[is.na(interpeak_left)] <- 0
+  ## Set negative values caused by calculation at the start of each chromosome to 0
+  interpeak_right[interpeak_right < 0] <- 0
+  interpeak_left[interpeak_left < 0] <- 0
   ## Preallocate list to be populated with variable size signals
   signals <- vector(mode="list", length=n_peaks)
   signals <- lapply(1:n_peaks,function(x) signalSet())
   #########3 THINK ABOUT PREALLOCATING SIGNALSET'S SIGNAL WIDTH AS YOU ALREADY HAVE PRECOMPUTED WIDTHS
   ########## WHICH CORRESPOND TO THE SIGNAL'S LENGTH
-  ## maybe https://www.r-bloggers.com/how-to-use-lists-in-r/ for handling lists
-  ## Fill rest of values in signalSet object
+
+    ## Fill rest of values in signalSet object
   for (i in (1:n_peaks)){
 
     signals[[i]]$signal <- granges_to_continuous(overlapper[lead_range_vector[i]:lagging_range_vector[i]])
@@ -395,9 +400,20 @@ overlap_baseline <- function(query, target, return_unique = "FALSE"){
 
 base_features_from_signalsetlist <- function(x, section= "interval", returns = "indices",
                                              wraptoGRanges = "FALSE", unwrap = "FALSE"){
-
-  set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
+  
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
+  set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
+  ## Rationale: even if there's n valleys, no area can be calculated without
+  ## Accompanying peaks; therefore, these observations are dropped.
+  no_peaks <- unlist(lapply(set_peaks,function(x) any(length(x)==0)))
+  no_valleys <- unlist(lapply(set_valleys,function(x) any(length(x)==0)))
+  ## Join into single logic vector for removal of observations with 0
+  ## On peaks or valleys
+  to_remove <- Reduce(`|`, list(no_peaks,no_valleys))
+  ## subset valleys and peaks without 0 and continue
+  set_valleys <- set_valleys[!to_remove]
+  set_peaks <- set_peaks[!to_remove]
+  x <- x[!to_remove]
   ## Needs optimizing, implement an apply function that can obtain
   ## All metadata in signalset that's not the base signal
   set_upstream <- lapply(x, '[[', 'distance_to_nearest_upstream_peak')
@@ -423,16 +439,20 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
     rep_sorted_index_vector <- c(sorted_index_vector[1],
                                  rep(sorted_index_vector[2:(length(sorted_index_vector)-1)],times=1,each=2),
                                  sorted_index_vector[length(unlist(sorted_index_vector))])
+    
+    start <- rep_sorted_index_vector[seq(1,length(rep_sorted_index_vector),by=2)]
+    end <- rep_sorted_index_vector[seq(2,length(rep_sorted_index_vector),by=2)]
+    extension <- diff(sorted_index_vector)
 
-    base_features <- data.frame(start = rep_sorted_index_vector[seq(1,length(rep_sorted_index_vector),by=2)],
-                                end = rep_sorted_index_vector[seq(2,length(rep_sorted_index_vector),by=2)])
+    base_features <- data.frame(start = start, end = end)
 
     ## Calculate and Assign area base_features
     signal_area_length <- signal[rep_sorted_index_vector]
     base_features$chr <- set_chr[[i]]
-    base_features$extension <- diff(sorted_index_vector)
+    base_features$extension <- extension
     base_features$height <- abs(zoo::rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
     base_features$area <- (base_features$height * base_features$extension)/2
+    
     ## Add metadata
     ## Needs optimizing as well, same as above
     base_features$bps_to_next_peak <- set_upstream[[i]]
@@ -456,12 +476,12 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
       match_index[!is.na(matches)] <- cumsum(match_index[!is.na(matches)])
       ## Assign 0, then subset as logical to keep valley values from area vector
       ## Missing assertion to make valley vector and scores equal
-      ## calculate valley areas, extensions and heights on observations that contain both valleys
-      valley_area <- as.vector(tapply(area_for_subset[match_index],groups,sum,na.rm=TRUE))
-      ## Extension
-      valley_extension <-  as.vector(tapply(extension_for_subset[match_index],groups,sum,na.rm=TRUE))
-      ## Height
-      valley_height <-  as.vector(tapply(height_for_subset[match_index],groups,sum,na.rm=TRUE))
+      ## calculate valley areas, extensions and heights on observations that contain
+      ## a valley between two peaks
+      valley_area <- as.vector(tapply(area_for_subset[match_index],groups,sum,na.rm=TRUE)) ## Area
+      valley_extension <-  as.vector(tapply(extension_for_subset[match_index],groups,sum,na.rm=TRUE)) ## Extension
+      valley_height <-  as.vector(tapply(height_for_subset[match_index],groups,sum,na.rm=TRUE)) ## Height
+
 
       if(returns == "positions") valleys <- valleys + (set_start[[i]]-1) else valleys
 
@@ -499,7 +519,7 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
   }
 
   if(wraptoGRanges == "TRUE" & unwrap == "TRUE"){
-  base_feature_list <- sort(do.call(c, unlist(base_feature_list,recursive=FALSE)))
+  base_feature_list <- suppressWarnings(sort(do.call(c, unlist(base_feature_list,recursive=FALSE))))
   } else if(unwrap == "TRUE"){
   base_feature_list <- bind_rows(base_feature_list)
   } else{base_feature_list}
@@ -509,36 +529,36 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
 
 }
 
-build_feature_matrix <- function(x, metadata_as_features = FALSE, include_sequence = FALSE,  refgenome){
-### To do: Generalize; merge this function with signal_matrix_from_signalSet to make it able to receive
+build_feature_table <- function(x, metadata_as_features = FALSE, include_sequence = FALSE,  refgenome){
+  ### To do: Generalize; merge this function with signal_matrix_from_signalSet to make it able to receive
   ## signalSets or Granges, whichever is supplied.
-
+  
   ## This check must go, should be a feature of the experimental parsing function
   if(class(x) != "GRanges" & class(x) != "list"){
     stop('Must provide a valid GRanges or signalSet list')
   } else if(class(x) == "list"){
-      if(all(sapply(x, class) == 'signalSet') == "FALSE"){
-    stop("List provided has at least one none signalSet object")}
-    }
+    if(all(sapply(x, class) == 'signalSet') == "FALSE"){
+      stop("List provided has at least one none signalSet object")}
+  }
   ## Is there a better way to stop doing this at the beginning of each signalset associated function?
   ## A signalset accessor of sorts?
   if(class(x) == 'list'){
-
-  starts <- sapply(signalSet,'[[','start')
-  ends <- sapply(signalSet,'[[','end')
-  chrs <- sapply(signalSet,'[[','chromosome')
-  widths <- sapply(signalSet, '[[', 'width')
-  chromosome <- unlist(mapply(rep,chrs,widths),use.names=FALSE)
-  master_index <- unlist(mapply(`:`, starts, ends), use.names=FALSE)
-  master_matrix <- data.table(master_index = master_index, chromosome = chromosome, signal = unlist(sapply(signalSet,'[[','signal')))
+    
+    starts <- sapply(signalSet,'[[','start')
+    ends <- sapply(signalSet,'[[','end')
+    chrs <- sapply(signalSet,'[[','chromosome')
+    widths <- sapply(signalSet, '[[', 'width')
+    chromosome <- unlist(mapply(rep,chrs,widths),use.names=FALSE)
+    master_index <- unlist(mapply(`:`, starts, ends), use.names=FALSE)
+    master_matrix <- data.table(master_index = master_index, chromosome = chromosome, signal = unlist(sapply(signalSet,'[[','signal')))
   } else if(class(x) == "GRanges"){
-  ## Build an index to parse the aggregate sequence of all GRanges objects.
-  master_grange <- unique(sort(GenomicRanges::reduce(x)))
-  master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_grange)),width(master_grange)), use.names=FALSE)   ## obtain chrnames for index
-  master_index <- unlist(mapply(`:`, start(master_grange), end(master_grange)), use.names=FALSE)   ## Create main bp vector
-  # Store as a matrix to add further sections, depending on user supplied preferences
-  master_matrix <- data.table(master_index, chromosome=master_granges_seqnames)}
-
+    ## Build an index to parse the aggregate sequence of all GRanges objects.
+    master_grange <- unique(sort(GenomicRanges::reduce(x)))
+    master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_grange)),width(master_grange)), use.names=FALSE)   ## obtain chrnames for index
+    master_index <- unlist(mapply(`:`, start(master_grange), end(master_grange)), use.names=FALSE)   ## Create main bp vector
+    # Store as a matrix to add further sections, depending on user supplied preferences
+    master_matrix <- data.table(master_index, chromosome=master_granges_seqnames)}
+  
   if(include_sequence == TRUE){
     force(refgenome)   ### Checking a valid genome was supplied
     if(refgenome %in% BSgenome::available.genomes()){
@@ -548,26 +568,26 @@ build_feature_matrix <- function(x, metadata_as_features = FALSE, include_sequen
          Consult available options with BSgenome::available.genomes()")}
     require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
     genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
-  ### to do: add option for custom genomes
-  master_index_seqs <- as.character(getSeq(genome, master_grange))   ## Parse before deconstructing vector
-  master_index_seqs <- unlist(strsplit(paste(master_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
-
-  ## one hot encoding of previously obtained sequences
-  bases <- c('A','C','G','T')
-  tokenizer <- text_tokenizer(char_level = TRUE) %>%
-    fit_text_tokenizer(bases)
-  master_seq_matrix <- texts_to_matrix(tokenizer,master_index_seqs,mode="binary")
-  master_seq_matrix <- as.data.table(master_seq_matrix[,-1])
-  setnames(master_seq_matrix, bases)
-  master_matrix <- data.table(master_matrix,master_seq_matrix) ## Join into index + seq matrix
+    ### to do: add option for custom genomes
+    master_index_seqs <- as.character(getSeq(genome, master_grange))   ## Parse before deconstructing vector
+    master_index_seqs <- unlist(strsplit(paste(master_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
+    
+    ## one hot encoding of previously obtained sequences
+    bases <- c('A','C','G','T')
+    tokenizer <- text_tokenizer(char_level = TRUE) %>%
+      fit_text_tokenizer(bases)
+    master_seq_matrix <- texts_to_matrix(tokenizer,master_index_seqs,mode="binary")
+    master_seq_matrix <- as.data.table(master_seq_matrix[,-1])
+    setnames(master_seq_matrix, bases)
+    master_matrix <- data.table(master_matrix,master_seq_matrix) ## Join into index + seq matrix
   }
-
+  
   if(metadata_as_features == TRUE){
     metadata_features <- as.data.table(elementMetadata(x))
     metadata_features <- metadata_features[rep(seq_len(nrow(metadata_features)), width(x)),]
     master_matrix <- data.table(master_matrix,metadata_features)
   }
-
+  
   return(master_matrix)
 }
 
