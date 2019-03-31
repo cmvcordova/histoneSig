@@ -72,6 +72,38 @@ granges_to_continuous <- function(x){
   return(score_vector)
 }
 
+check_and_load_refgenome <- function(refgenome){
+  if(refgenome %in% BSgenome::available.genomes()){
+    refgenome
+  }else{
+    stop("Provided reference genome not available.
+         Consult available options with BSgenome::available.genomes()")}
+  require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
+  genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
+  return(genome)
+}
+
+dna_one_hot <- function(x){
+  
+  # x is a basepair vector ex: 'A','C','G','T', etc
+  ## Probably a horrible implementation, but it's doing the job
+  ### HOW DO R FORMULA OBJECTS EVEN WORK?
+  bases <- c('A','C','G','T')
+  ## Build the encoder
+  encoder = as.data.frame(bases)
+  names(encoder) <- 'bases'
+  dmy <- caret::dummyVars(" ~ bases", data=encoder)
+  ## Get char
+  x <- as.data.frame(x)
+  names(x) <- 'bases'
+  one_hot_matrix <- predict(dmy,x)
+  colnames(one_hot_matrix) <- bases
+  return(one_hot_matrix)
+  
+}
+
+### SIGNALSET CLASS
+
 signalSet <- function(){
 
   signal <- list(signal = vector(),
@@ -86,6 +118,7 @@ signalSet <- function(){
 
   signal
 }
+
 
 signals_from_bigwig <- function(bw_object){
 ######### currently only as a test function, use only at own risk
@@ -540,8 +573,14 @@ build_feature_table <- function(x, metadata_as_features = FALSE, include_sequenc
     if(all(sapply(x, class) == 'signalSet') == "FALSE"){
       stop("List provided has at least one none signalSet object")}
   }
+  
+  if(include_sequence == TRUE){
+    genome <- check_and_load_refgenome(refgenome)
+  }
+  
   ## Is there a better way to stop doing this at the beginning of each signalset associated function?
   ## A signalset accessor of sorts?
+  
   if(class(x) == 'list'){
     
     starts <- sapply(signalSet,'[[','start')
@@ -550,45 +589,33 @@ build_feature_table <- function(x, metadata_as_features = FALSE, include_sequenc
     widths <- sapply(signalSet, '[[', 'width')
     chromosome <- unlist(mapply(rep,chrs,widths),use.names=FALSE)
     master_index <- unlist(mapply(`:`, starts, ends), use.names=FALSE)
-    master_matrix <- data.table(master_index = master_index, chromosome = chromosome, signal = unlist(sapply(signalSet,'[[','signal')))
+    master_table <- data.table(master_index = master_index, chromosome = chromosome, signal = unlist(sapply(signalSet,'[[','signal')))
   } else if(class(x) == "GRanges"){
     ## Build an index to parse the aggregate sequence of all GRanges objects.
-    master_grange <- unique(sort(GenomicRanges::reduce(x)))
-    master_granges_seqnames <- unlist(mapply(rep,as.vector(seqnames(master_grange)),width(master_grange)), use.names=FALSE)   ## obtain chrnames for index
+    master_grange <- x ## Copying x in case metadata has to be called later (which it does)
+    elementMetadata(master_grange) <- NULL 
+    master_granges_seqnames <- rep(as.vector(seqnames(master_grange)),width(master_grange))  ## obtain chrnames for index
     master_index <- unlist(mapply(`:`, start(master_grange), end(master_grange)), use.names=FALSE)   ## Create main bp vector
     # Store as a matrix to add further sections, depending on user supplied preferences
-    master_matrix <- data.table(master_index, chromosome=master_granges_seqnames)}
+    master_table <- data.table(master_index, chromosome=master_granges_seqnames)}
   
   if(include_sequence == TRUE){
-    force(refgenome)   ### Checking a valid genome was supplied
-    if(refgenome %in% BSgenome::available.genomes()){
-      refgenome
-    }else{
-      stop("Provided reference genome not available.
-         Consult available options with BSgenome::available.genomes()")}
-    require(suppressPackageStartupMessages(refgenome),character.only = TRUE) # Load supplied genome
-    genome <- eval(parse(text=refgenome)) ## Include in variable that will be used for further calls
     ### to do: add option for custom genomes
     master_index_seqs <- as.character(getSeq(genome, master_grange))   ## Parse before deconstructing vector
     master_index_seqs <- unlist(strsplit(paste(master_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
     
     ## one hot encoding of previously obtained sequences
-    bases <- c('A','C','G','T')
-    tokenizer <- text_tokenizer(char_level = TRUE) %>%
-      fit_text_tokenizer(bases)
-    master_seq_matrix <- texts_to_matrix(tokenizer,master_index_seqs,mode="binary")
-    master_seq_matrix <- as.data.table(master_seq_matrix[,-1])
-    setnames(master_seq_matrix, bases)
-    master_matrix <- data.table(master_matrix,master_seq_matrix) ## Join into index + seq matrix
+    master_seq_matrix <- dna_one_hot(master_index_seqs)
+    master_table <- data.table(master_table,master_seq_matrix) ## Join into index + seq matrix
   }
   
   if(metadata_as_features == TRUE){
     metadata_features <- as.data.table(elementMetadata(x))
     metadata_features <- metadata_features[rep(seq_len(nrow(metadata_features)), width(x)),]
-    master_matrix <- data.table(master_matrix,metadata_features)
+    master_table <- data.table(master_table,metadata_features)
   }
   
-  return(master_matrix)
+  return(master_table)
 }
 
 
@@ -616,5 +643,6 @@ parse_signalSet <- function(x, to_parse){
 
   return(parser(to_parse))
 }
+
 
 
