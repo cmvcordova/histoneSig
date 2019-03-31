@@ -90,10 +90,10 @@ dna_one_hot <- function(x){
   ### HOW DO R FORMULA OBJECTS EVEN WORK?
   bases <- c('A','C','G','T')
   ## Build the encoder
-  encoder = as.data.frame(bases)
+  encoder = as.data.frame(bases)   
   names(encoder) <- 'bases'
   dmy <- caret::dummyVars(" ~ bases", data=encoder)
-  ## Get char
+ ## Build one hot matrix from char vector
   x <- as.data.frame(x)
   names(x) <- 'bases'
   one_hot_matrix <- predict(dmy,x)
@@ -159,7 +159,7 @@ signals_from_bigwig <- function(bw_object){
 np_signals_from_bigwig <- function(bw_object, np_object){
 
   ##Make object that will be transformed to signal given specified peakfile, bigwig pairs
-
+  
   ## Calculate overlap vectorS
   overlapper <- subsetByOverlaps(bw_object,np_object)
   overlaps <- countOverlaps(np_object, bw_object)
