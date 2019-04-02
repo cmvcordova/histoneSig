@@ -645,4 +645,58 @@ parse_signalSet <- function(x, to_parse){
 }
 
 
-
+per_chr_valley_plots <- function(x, separator='experiment', feature_to_plot = NULL ,
+                                 condition=NULL, object_to_return="plot"){
+  ## needs a bit more attention, currently designed
+  ## to work with granges but a feature table approach should be in order
+  ## To do: add argument to make something other than a segmented boxplot?
+  if(class(x) != "GRanges" & class(x) != "data.frame"){
+    stop('Must provide a valid GRanges, data.frame, or data.table')
+  }
+  
+  if(!is.null(feature_to_plot)){
+    if(!is.vector(feature_to_plot) & class(feature_to_plot) != "character"){
+      stop('Must provid a valid character vector with the column names of the features that are to be plotted')
+    } 
+  }
+  
+  if(class(x) == "GRanges"){
+    features <- as.data.table(elementMetadata(x))
+    chrnames <- as.character(seqnames(x))
+    ## 'positions' currently works since it's understood a valley object
+    ## has the same start and end with length 1; this will
+    ## undoubtedly break with a different sized input
+    positions <- start(ranges(x)) 
+    chr_data <- data.table(chrnames,positions,features) # separator subset features[,separator,with=FALSE]
+  }else if(class(x) =="data.table"){
+    chr_data <- data.table(x) ## for performance ?
+  }
+  ## To do: add a check between features_to_plot and
+  ## names(data) to make sure something'll get plotted
+  plot_names <- unique(chr_data$chrnames)
+  n <- length(plot_names)
+  ncol <- floor(sqrt(n))
+  plot_list <- vector(mode = "list", length = n)
+  
+  for(i in 1:n){
+    plotdata <- chr_data[chr_data[,chrnames == plot_names[i]]]
+    
+    plot_list[[i]] <- ggplot(data = plotdata, aes(x = chrnames, 
+                                                  y = eval(parse(text = feature_to_plot)), 
+                                                  fill = eval(parse(text = separator)))) +
+      geom_boxplot() +
+      xlab(plot_names[i]) +
+      ylab(feature_to_plot) +
+      guides(fill=guide_legend(title=separator)) +
+      scale_y_log10() ## These transformations should be passed in as options to the function
+    
+  }
+  names(plot_list) <- plot_names
+  if(object_to_return == "plotlist"){
+    return(plot_list)
+  } else {
+  return(do.call("grid.arrange", c(plot_list,ncol=ncol)))
+  dev.off()
+  }
+  
+}
