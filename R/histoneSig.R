@@ -431,8 +431,9 @@ overlap_baseline <- function(query, target, return_unique = "FALSE"){
 ## Still prototyping with it, use at own risk
 ## Width calculation is off.
 
-base_features_from_signalsetlist <- function(x, section= "interval", returns = "indices",
-                                             wraptoGRanges = "FALSE", unwrap = "FALSE"){
+base_features_from_signalsetlist <- function(x, section = "interval", returns = "indices",
+                                             wraptoGRanges = "FALSE", unwrap = "FALSE",
+                                             max_area_filter = "FALSE"){
   
   set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
   set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
@@ -453,6 +454,7 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
   set_downstream <- lapply(x, '[[', 'distance_to_nearest_downstream_peak')
   set_chr <-lapply(x, '[[', 'chromosome')
   set_start <-lapply(x, '[[', 'start')
+  set_maximums <- sapply(lapply(x,'[[','signal'),max)
 
   signalset_length <- length(x)
   base_feature_list <- vector(mode ="list",length = signalset_length)
@@ -486,8 +488,10 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
     base_features$height <- abs(zoo::rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
     base_features$area <- (base_features$height * base_features$extension)/2
     
+    
     ## Add metadata
     ## Needs optimizing as well, same as above
+    base_features$signal_maximum <- set_maximums[i]
     base_features$bps_to_next_peak <- set_upstream[[i]]
     base_features$bps_to_previous_peak <- set_downstream[[i]]
 
@@ -515,7 +519,6 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
       valley_extension <-  as.vector(tapply(extension_for_subset[match_index],groups,sum,na.rm=TRUE)) ## Extension
       valley_height <-  as.vector(tapply(height_for_subset[match_index],groups,sum,na.rm=TRUE)) ## Height
 
-
       if(returns == "positions") valleys <- valleys + (set_start[[i]]-1) else valleys
 
       base_feature_list[[i]] <- data.frame(valley = valleys,
@@ -523,12 +526,17 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
                                            extension = valley_extension,
                                            height = valley_height,
                                            area = valley_area,
+                                           signal_maximum = set_maximums[i],
                                            bps_to_next_peak = rep(set_upstream[[i]], length(valleys)),
                                            bps_to_previous_peak = rep(set_downstream[[i]], length(valleys)))
 
     } else {base_feature_list[[i]] <- base_features}
     ## Remove valleys with area = 0
     base_feature_list[[i]] <- base_feature_list[[i]][base_feature_list[[i]]$area!=0,]
+    
+    if(max_area_filter == "TRUE"){
+      base_feature_list[[i]] <- base_feature_list[[i]][which.max(base_feature_list[[i]]$area),]
+    }
   }
 
   if(wraptoGRanges == "TRUE"){
@@ -555,7 +563,7 @@ base_features_from_signalsetlist <- function(x, section= "interval", returns = "
   base_feature_list <- suppressWarnings(sort(do.call(c, unlist(base_feature_list,recursive=FALSE))))
   } else if(unwrap == "TRUE"){
   base_feature_list <- bind_rows(base_feature_list)
-  } else{base_feature_list}
+  } else {base_feature_list}
 
   return(base_feature_list)
 
@@ -567,6 +575,9 @@ build_feature_table <- function(x, metadata_as_features = FALSE, include_sequenc
   ## signalSets or Granges, whichever is supplied.
   
   ## This check must go, should be a feature of the experimental parsing function
+  ### features from signalsetlist doesn't give return a signalset, therefore this check
+  ## Returns an error on non granges base_feature_list
+  
   if(class(x) != "GRanges" & class(x) != "list"){
     stop('Must provide a valid GRanges or signalSet list')
   } else if(class(x) == "list"){
