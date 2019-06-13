@@ -84,13 +84,13 @@ check_and_load_refgenome <- function(refgenome){
 }
 
 dna_one_hot <- function(x){
-  
+
   # x is a basepair vector ex: 'A','C','G','T', etc
   ## Probably a horrible implementation, but it's doing the job
   ### HOW DO R FORMULA OBJECTS EVEN WORK?
   bases <- c('A','C','G','T')
   ## Build the encoder
-  encoder = as.data.frame(bases)   
+  encoder = as.data.frame(bases)
   names(encoder) <- 'bases'
   dmy <- caret::dummyVars(" ~ bases", data=encoder)
  ## Build one hot matrix from char vector
@@ -99,7 +99,7 @@ dna_one_hot <- function(x){
   one_hot_matrix <- predict(dmy,x)
   colnames(one_hot_matrix) <- bases
   return(one_hot_matrix)
-  
+
 }
 
 ### SIGNALSET CLASS
@@ -159,7 +159,7 @@ signals_from_bigwig <- function(bw_object){
 np_signals_from_bigwig <- function(bw_object, np_object){
 
   ##Make object that will be transformed to signal given specified peakfile, bigwig pairs
-  
+
   ## Calculate overlap vectorS
   overlapper <- subsetByOverlaps(bw_object,np_object)
   overlaps <- countOverlaps(np_object, bw_object)
@@ -203,7 +203,7 @@ np_signals_from_bigwig <- function(bw_object, np_object){
 }
 
 
-filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
+filter_signalSet <- function(signalSet, window_size, filter_function, ...){
   ## Use window_size for equal sized lowpass, fractional for proportional filter
   ## optional arguments for function
   ## TODO: add unused protection for dots
@@ -216,16 +216,16 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
     assign(x = names(dots)[i], value = dots[[i]])
   }
     if('fractional' %in% names(dots)){
-      window_size = ((unlist(lapply(signalsetlist,'[[', 'width'))) / fractional)
+      window_size = ((unlist(lapply(signalSet,'[[', 'width'))) / fractional)
     }
   }
   ## Defaults to a lowpass filter
   if(missing(filter_function)) filter_function <- lowpass_filter else filter_function
 
   if(length(window_size) > 1){
-  filtered_signals <- mapply(filter_function, x = lapply(signalsetlist,'[[', 'signal'), n = window_size)
+  filtered_signals <- mapply(filter_function, x = lapply(signalSet,'[[', 'signal'), n = window_size)
   }else if(length(window_size) == 1){
-  filtered_signals <- lapply(lapply(signalsetlist,'[[', 'signal'), filter_function, n = window_size)
+  filtered_signals <- lapply(lapply(signalSet,'[[', 'signal'), filter_function, n = window_size)
   }
   else{stop("n must be a positive numeric integer or vector")}
   ## switch TS object back to numeric signal
@@ -237,13 +237,13 @@ filter_signalSet <- function(signalsetlist, window_size, filter_function, ...){
   values <- Map('[', filtered_signals, first_value_index)
   ##
   filtered_signals <- mapply(function(x,v) replace(x,is.na(x),v), x=filtered_signals ,v=values)
-  for (i in 1:length(signalsetlist)){
+  for (i in 1:length(signalSet)){
   ## assign back into list
     ## Is there a way to do this with an apply or map?
-    signalsetlist[[i]]$signal <- filtered_signals[[i]]
+    signalSet[[i]]$signal <- filtered_signals[[i]]
   }
 
-  return(signalsetlist)
+  return(signalSet)
 }
 
 ## Where query is the file to obtain regions with multiple overlaps from
@@ -328,16 +328,16 @@ grextend <- function(x, upstream=0, downstream=0){
   trim(x)
 }
 
-positions_from_signalsetlist <- function(signalsetlist, points, returns = "positions"){
+positions_from_signalSet <- function(signalSet, points, returns = "positions"){
   ##### Breaks on non-nested lists (working as intended?)
   ##### Search for default methods on S3 classes
-  #### create methods for both signalSet and signalSetlist
+  #### create methods for both signalSet and signalSet
   ##(or don't, learn to circumvent the list wrapper in signalSets
   force(points)
   if(points == "valleys"){
-    x <- lapply(lapply(signalsetlist,'[[', 1), function(x){findvalleysone(x)})
+    x <- lapply(lapply(signalSet,'[[', 1), function(x){findvalleysone(x)})
   }else if(points == "peaks"){
-    x <- lapply(lapply(signalsetlist,'[[', 1), function(x){findpeaksone(x)})
+    x <- lapply(lapply(signalSet,'[[', 1), function(x){findpeaksone(x)})
   }else{
     stop("points argument must be specified as either peaks or valleys")
   }
@@ -348,7 +348,7 @@ positions_from_signalsetlist <- function(signalsetlist, points, returns = "posit
     return(x)
   }else{
     ### subtracting 1 from starts to report valleys correctly after sum
-    starts <- unlist(lapply(signalsetlist,'[[', 3))-1
+    starts <- unlist(lapply(signalSet,'[[', 3))-1
     return(Map(`+`, x, starts))
   }
 
@@ -373,21 +373,21 @@ plotSignal <- function(x, highlight="none", ...){
 
   if(highlight == "valleys"){
 
-    valleys <- data.table(position = unlist(positions_from_signalsetlist(x, "valleys", "indices")))
+    valleys <- data.table(position = unlist(positions_from_signalSet(x, "valleys", "indices")))
     dt[valleys, on = "position", valley_exists := i.position]
     p = p + geom_point(data= dt[dt$valley_exists>0], color="red") +
       scale_color_discrete(name = "Point", labels = "Valleys")
 
   } else if(highlight == "peaks") {
 
-    peaks <- data.table(position = unlist(positions_from_signalsetlist(x, "peaks", "indices")))
+    peaks <- data.table(position = unlist(positions_from_signalSet(x, "peaks", "indices")))
     dt[peaks, on = "position", peak_exists := i.position]
     p = p + geom_point(data= dt[dt$peak_exists>0], color="blue")
 
   } else if(highlight =='both') {
 
-    valleys <- data.table(position = unlist(positions_from_signalsetlist(x, "valleys", "indices")))
-    peaks <- data.table(position = unlist(positions_from_signalsetlist(x, "peaks", "indices")))
+    valleys <- data.table(position = unlist(positions_from_signalSet(x, "valleys", "indices")))
+    peaks <- data.table(position = unlist(positions_from_signalSet(x, "peaks", "indices")))
     dt[valleys, on = "position", valley_exists := i.position]
     dt[peaks, on = "position", peak_exists := i.position]
     p = p + geom_point(data= dt[dt$valley_exists>0], color="red") +
@@ -431,12 +431,12 @@ overlap_baseline <- function(query, target, return_unique = "FALSE"){
 ## Still prototyping with it, use at own risk
 ## Width calculation is off.
 
-base_features_from_signalsetlist <- function(x, section = "interval", returns = "indices",
+base_features_from_signalSet <- function(x, section = "interval", returns = "indices",
                                              wraptoGRanges = "FALSE", unwrap = "FALSE",
                                              max_area_filter = "FALSE"){
-  
-  set_peaks <- positions_from_signalsetlist(x, "peaks", "indices")
-  set_valleys <- positions_from_signalsetlist(x, "valleys", "indices")
+
+  set_peaks <- positions_from_signalSet(x, "peaks", "indices")
+  set_valleys <- positions_from_signalSet(x, "valleys", "indices")
   ## Rationale: even if there's n valleys, no area can be calculated without
   ## Accompanying peaks; therefore, these observations are dropped.
   no_peaks <- unlist(lapply(set_peaks,function(x) any(length(x)==0)))
@@ -474,7 +474,7 @@ base_features_from_signalsetlist <- function(x, section = "interval", returns = 
     rep_sorted_index_vector <- c(sorted_index_vector[1],
                                  rep(sorted_index_vector[2:(length(sorted_index_vector)-1)],times=1,each=2),
                                  sorted_index_vector[length(unlist(sorted_index_vector))])
-    
+
     start <- rep_sorted_index_vector[seq(1,length(rep_sorted_index_vector),by=2)]
     end <- rep_sorted_index_vector[seq(2,length(rep_sorted_index_vector),by=2)]
     extension <- diff(sorted_index_vector)
@@ -487,8 +487,8 @@ base_features_from_signalsetlist <- function(x, section = "interval", returns = 
     base_features$extension <- extension
     base_features$height <- abs(zoo::rollapply(signal_area_length, 2, by=2, diff, partial = TRUE, align="left"))
     base_features$area <- (base_features$height * base_features$extension)/2
-    
-    
+
+
     ## Add metadata
     ## Needs optimizing as well, same as above
     base_features$signal_maximum <- set_maximums[i]
@@ -533,7 +533,7 @@ base_features_from_signalsetlist <- function(x, section = "interval", returns = 
     } else {base_feature_list[[i]] <- base_features}
     ## Remove valleys with area = 0
     base_feature_list[[i]] <- base_feature_list[[i]][base_feature_list[[i]]$area!=0,]
-    
+
     if(max_area_filter == "TRUE"){
       base_feature_list[[i]] <- base_feature_list[[i]][which.max(base_feature_list[[i]]$area),]
     }
@@ -573,27 +573,27 @@ base_features_from_signalsetlist <- function(x, section = "interval", returns = 
 build_feature_table <- function(x, metadata_as_features = FALSE, include_sequence = FALSE,  refgenome){
   ### To do: Generalize; merge this function with signal_matrix_from_signalSet to make it able to receive
   ## signalSets or Granges, whichever is supplied.
-  
+
   ## This check must go, should be a feature of the experimental parsing function
-  ### features from signalsetlist doesn't give return a signalset, therefore this check
+  ### features from signalSet doesn't give return a signalset, therefore this check
   ## Returns an error on non granges base_feature_list
-  
+
   if(class(x) != "GRanges" & class(x) != "list"){
     stop('Must provide a valid GRanges or signalSet list')
   } else if(class(x) == "list"){
     if(all(sapply(x, class) == 'signalSet') == "FALSE"){
       stop("List provided has at least one none signalSet object")}
   }
-  
+
   if(include_sequence == TRUE){
     genome <- check_and_load_refgenome(refgenome)
   }
-  
+
   ## Is there a better way to stop doing this at the beginning of each signalset associated function?
   ## A signalset accessor of sorts?
-  
+
   if(class(x) == 'list'){
-    
+
     starts <- sapply(signalSet,'[[','start')
     ends <- sapply(signalSet,'[[','end')
     chrs <- sapply(signalSet,'[[','chromosome')
@@ -604,28 +604,28 @@ build_feature_table <- function(x, metadata_as_features = FALSE, include_sequenc
   } else if(class(x) == "GRanges"){
     ## Build an index to parse the aggregate sequence of all GRanges objects.
     master_grange <- x ## Copying x in case metadata has to be called later (which it does)
-    elementMetadata(master_grange) <- NULL 
+    elementMetadata(master_grange) <- NULL
     master_granges_seqnames <- rep(as.vector(seqnames(master_grange)),width(master_grange))  ## obtain chrnames for index
     master_index <- unlist(mapply(`:`, start(master_grange), end(master_grange)), use.names=FALSE)   ## Create main bp vector
     # Store as a matrix to add further sections, depending on user supplied preferences
     master_table <- data.table(master_index, chromosome=master_granges_seqnames)}
-  
+
   if(include_sequence == TRUE){
     ### to do: add option for custom genomes
     master_index_seqs <- as.character(getSeq(genome, master_grange))   ## Parse before deconstructing vector
     master_index_seqs <- unlist(strsplit(paste(master_index_seqs,collapse=""),"")) ## Split and join into per basepair sequence vector
-    
+
     ## one hot encoding of previously obtained sequences
     master_seq_matrix <- dna_one_hot(master_index_seqs)
     master_table <- data.table(master_table,master_seq_matrix) ## Join into index + seq matrix
   }
-  
+
   if(metadata_as_features == TRUE){
     metadata_features <- as.data.table(elementMetadata(x))
     metadata_features <- metadata_features[rep(seq_len(nrow(metadata_features)), width(x)),]
     master_table <- data.table(master_table,metadata_features)
   }
-  
+
   return(master_table)
 }
 
@@ -664,20 +664,20 @@ per_chr_valley_plots <- function(x, separator='experiment', feature_to_plot = NU
   if(class(x) != "GRanges" & class(x) != "data.frame"){
     stop('Must provide a valid GRanges, data.frame, or data.table')
   }
-  
+
   if(!is.null(feature_to_plot)){
     if(!is.vector(feature_to_plot) & class(feature_to_plot) != "character"){
       stop('Must provid a valid character vector with the column names of the features that are to be plotted')
-    } 
+    }
   }
-  
+
   if(class(x) == "GRanges"){
     features <- as.data.table(elementMetadata(x))
     chrnames <- as.character(seqnames(x))
     ## 'positions' currently works since it's understood a valley object
     ## has the same start and end with length 1; this will
     ## undoubtedly break with a different sized input
-    positions <- start(ranges(x)) 
+    positions <- start(ranges(x))
     chr_data <- data.table(chrnames,positions,features) # separator subset features[,separator,with=FALSE]
   }else if(class(x) =="data.table"){
     chr_data <- data.table(x) ## for performance ?
@@ -688,19 +688,19 @@ per_chr_valley_plots <- function(x, separator='experiment', feature_to_plot = NU
   n <- length(plot_names)
   ncol <- floor(sqrt(n))
   plot_list <- vector(mode = "list", length = n)
-  
+
   for(i in 1:n){
     plotdata <- chr_data[chr_data[,chrnames == plot_names[i]]]
-    
-    plot_list[[i]] <- ggplot(data = plotdata, aes(x = chrnames, 
-                                                  y = eval(parse(text = feature_to_plot)), 
+
+    plot_list[[i]] <- ggplot(data = plotdata, aes(x = chrnames,
+                                                  y = eval(parse(text = feature_to_plot)),
                                                   fill = eval(parse(text = separator)))) +
       geom_boxplot() +
       xlab(plot_names[i]) +
       ylab(feature_to_plot) +
       guides(fill=guide_legend(title=separator)) +
       scale_y_log10() ## These transformations should be passed in as options to the function
-    
+
   }
   names(plot_list) <- plot_names
   if(object_to_return == "plotlist"){
@@ -709,5 +709,5 @@ per_chr_valley_plots <- function(x, separator='experiment', feature_to_plot = NU
   return(do.call("grid.arrange", c(plot_list,ncol=ncol)))
   dev.off()
   }
-  
+
 }
