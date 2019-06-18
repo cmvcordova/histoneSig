@@ -41,14 +41,15 @@ Starting from a narrow peak (or any other bedfile) and its corresponding bigwig 
 
 ```R 
 
-## Load our peak or preferred bedfile np_file <-
-import.np('path/to/npfile.bed')
+## Load our peak or preferred bedfile 
+np_file <- import.np('path/to/npfile.bed')
 
 ## Set the ranges we just got obtained to parse relevant bigWig fragments
 parsing_bw_ranges <- granges_chr_filter(np_file)
 
-## Parse bigWig bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
-selection = BigWigSelection(parsing_bw_ranges))
+## Parse bigWig 
+bw_file <- import.bw(con = BigWigFile("path/to/bwfile.bigWig"),
+		     selection = BigWigSelection(parsing_bw_ranges))
 
 ## Obtain signals from both of our files 
 your_first_signalset <- np_signals_from_bigwig(np_file, bw_file) 
