@@ -711,3 +711,58 @@ per_chr_valley_plots <- function(x, separator='experiment', feature_to_plot = NU
   }
 
 }
+
+data_from_overlaps <- function(query,target){
+  #determines various overlap statistics, from a query (ChIP)
+  #and a target (ATAC).
+  
+  ### percent overlap calculation partially taken from: 
+  ### https://support.bioconductor.org/p/72656/
+  hits <- findOverlaps(query, target)
+  ## Which chip hit group does it correspond to?
+  target_overlaps  <- subjectHits(hits)
+  target_overlap_groupref <- rep(seq_along(as.numeric(table(subjectHits(hits)))),times=as.numeric(table(subjectHits(hits))))
+  query_overlaps <- queryHits(hits)
+  query_overlap_groupref <- rep(seq_along(as.numeric(table(queryHits(hits)))),times=as.numeric(table(queryHits(hits))))
+  #determine widths
+  query_widths <- width(query)
+  target_widths <- width(target)
+  #
+  query_widths_ref <- query_widths[target_overlap_groupref]
+  target_widths_ref <- target_widths[target_overlaps]
+  
+  coverable_target_bases <- as.vector(tapply(target_widths_ref,query_overlap_groupref,sum))
+  covered_target_bases <-  as.vector(tapply(width(pintersect(query[queryHits(hits)], target[subjectHits(hits)])),
+                                            query_overlap_groupref,sum))
+  
+  targets_overlapped <- as.numeric(table(query_overlap_groupref))
+  
+  # Doesnt make much sense on current iteration since there can be plenty of targets
+  ## Decide on a weight   target_bases_covered <- 
+  covered_base_ratio <- covered_target_bases/coverable_target_bases
+  data <- data.frame(covered_target_bases,coverable_target_bases,covered_base_ratio, targets_overlapped)
+  return(data)
+  
+}
+
+protected_grextend <- function(x, upstream=0, downstream=0){
+  
+  ## Currently only supports granges that are on the same strand
+  ## Calculate starts and ends of range
+  starts <- start(x)
+  ends <- end(x)
+  ## Determine where neighboring ranges start and end
+  next_left <- ends[follow(x)] 
+  next_right <- starts[precede(x)]
+  ## Determine distance
+  distance_to_left<- starts - next_left
+  distance_to_right <- next_right - ends
+  ## Fix NAs at beginning of chromosomes
+  distance_to_left[is.na(distance_to_left)] <- 0
+  distance_to_right[is.na(distance_to_right)] <-0
+  
+  new_start <-  starts  - ifelse(distance_to_left > upstream , upstream, floor(distance_to_left/2)-1)
+  new_end <-  ends + ifelse(distance_to_right > downstream, downstream, floor(distance_to_right/2)-1)
+  ranges(x) <- IRanges(new_start, new_end)
+  trim(x)
+}
