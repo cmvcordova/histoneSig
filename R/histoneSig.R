@@ -119,87 +119,53 @@ signalSet <- function(){
   signal
 }
 
-
-signals_from_bigwig <- function(bw_object){
-######### currently only as a test function, use only at own risk
-  ##Make object that will be transformed to signal given a bigwig file
-
-  widths <- width(bw_object)
-  starts <- start(bw_object)
-  ends<- end(bw_object)
-  n <- length(bw_object)
-  ## calculate interpeak distance, set right and left orientation
-  ### THIS MUST BE FIXED PER CHROMOSOME
-  interpeak_right <- lead(starts,1) - ends - 1
-  interpeak_left <- c(NA,head(interpeak_right,-1))
-  ## Preallocate list to be populated with variable size signals
-  signals <- vector(mode="list", length=n)
-  signals <- lapply(1:n,function(x) signalSet())
-  #########3 THINK ABOUT PREALLOCATING SIGNALSET'S SIGNAL WIDTH AS YOU ALREADY HAVE PRECOMPUTED WIDTHS
-  ########## WHICH CORRESPOND TO THE SIGNAL'S LENGTH
-  ## maybe https://www.r-bloggers.com/how-to-use-lists-in-r/ for handling lists
-
-  ## Fill rest of values in signalSet object
-  for (i in (1:n)){
-
-    signals[[i]]$signal <- granges_to_continuous(bw_object[i])
-    signals[[i]]$chromosome <- as.character(seqnames(bw_object[i]))
-    signals[[i]]$start <- starts[i]
-    signals[[i]]$end <- ends[i]
-    signals[[i]]$width <- widths[i]
-    signals[[i]]$distance_to_nearest_upstream_peak <-   interpeak_right[i]
-    signals[[i]]$distance_to_nearest_downstream_peak <- interpeak_left[i]
-
-  }
-
+signal_parser <- function(np_object, bw_object){
+  overlaps <- findOverlaps(bw_object,np_object)
+  values <- queryHits(overlaps)
+  by_vector <- factor(subjectHits(overlaps))
+  groups <- split(values,by_vector)
+  signals <- vector(mode="list", length=length(groups))
+  signals <- lapply(groups, function(x) granges_to_continuous(bw_object[x]))
   return(signals)
-
 }
 
-np_signals_from_bigwig <- function(bw_object, np_object){
 
+np_signals_from_bigwig <- function(np_object, bw_object){
+  
   ##Make object that will be transformed to signal given specified peakfile, bigwig pairs
-
-  ## Calculate overlap vectorS
-  overlapper <- subsetByOverlaps(bw_object,np_object)
-  overlaps <- countOverlaps(np_object, bw_object)
+  ## Preallocate list to be populated with variable size signals
+  n_peaks <- length(np_object)
+  signals <- vector(mode="list", length=n_peaks)
+  signals <- lapply(1:n_peaks,function(x) signalSet())
+  parsed_signals <- signal_parser(np_object,bw_object)
+  ## Calculate overlap vectors
   widths <- width(np_object)
   starts <- start(np_object)
   ends<- end(np_object)
-  ## create lead and lagging vectors to subset overlap object
-  n_peaks <- length(overlaps)
-  lagging_range_vector <- cumsum(overlaps)
-  lead_range_vector<- c(1,lagging_range_vector+1)[1:n_peaks]
-  ## calculate interpeak distance, set right and left orientation
-  interpeak_right <- lead(start(np_object),1) - end(np_object) - 1
-  interpeak_left <- c(NA,head(interpeak_right,-1))
-  ## Remove NAs caused due to being the first or last peak in chromosome
-  interpeak_right[is.na(interpeak_right)] <- 0
-  interpeak_left[is.na(interpeak_left)] <- 0
-  ## Set negative values caused by calculation at the start of each chromosome to 0
-  interpeak_right[interpeak_right < 0] <- 0
-  interpeak_left[interpeak_left < 0] <- 0
-  ## Preallocate list to be populated with variable size signals
-  signals <- vector(mode="list", length=n_peaks)
-  signals <- lapply(1:n_peaks,function(x) signalSet())
-  #########3 THINK ABOUT PREALLOCATING SIGNALSET'S SIGNAL WIDTH AS YOU ALREADY HAVE PRECOMPUTED WIDTHS
-  ########## WHICH CORRESPOND TO THE SIGNAL'S LENGTH
-
-    ## Fill rest of values in signalSet object
+  
+  ## Determine where neighboring ranges start and end
+  next_left <- ends[follow(np_object)]
+  next_right <- starts[precede(np_object)]
+  ## Determine distance
+  distance_to_left <- starts - next_left
+  distance_to_right <- next_right - ends
+  ## Fix NAs at beginning of chromosomes
+  distance_to_left[is.na(distance_to_left)] <- 0
+  distance_to_right[is.na(distance_to_right)] <-0
+  
+  ## Fill rest of values in signalSet object
   for (i in (1:n_peaks)){
-
-    signals[[i]]$signal <- granges_to_continuous(overlapper[lead_range_vector[i]:lagging_range_vector[i]])
+    signals[[i]]$signal <- parsed_signals[[i]]
     signals[[i]]$chromosome <- as.character(seqnames(np_object[i]))
     signals[[i]]$start <- starts[i]
     signals[[i]]$end <- ends[i]
     signals[[i]]$width <- widths[i]
-    signals[[i]]$distance_to_nearest_upstream_peak <-   interpeak_right[i]
-    signals[[i]]$distance_to_nearest_downstream_peak <- interpeak_left[i]
-
+    signals[[i]]$distance_to_nearest_upstream_peak <- distance_to_right[i]
+    signals[[i]]$distance_to_nearest_downstream_peak <- distance_to_left[i]
   }
-
+  
   return(signals)
-
+  
 }
 
 
@@ -752,7 +718,7 @@ protected_grextend <- function(x, upstream=0, downstream=0){
   starts <- start(x)
   ends <- end(x)
   ## Determine where neighboring ranges start and end
-  next_left <- ends[follow(x)] 
+  next_left <- ends[follow(x)]
   next_right <- starts[precede(x)]
   ## Determine distance
   distance_to_left<- starts - next_left
@@ -760,9 +726,10 @@ protected_grextend <- function(x, upstream=0, downstream=0){
   ## Fix NAs at beginning of chromosomes
   distance_to_left[is.na(distance_to_left)] <- 0
   distance_to_right[is.na(distance_to_right)] <-0
-  
-  new_start <-  starts  - ifelse(distance_to_left > upstream , upstream, floor(distance_to_left/2)-1)
-  new_end <-  ends + ifelse(distance_to_right > downstream, downstream, floor(distance_to_right/2)-1)
+
+  new_start <-  starts  - ifelse(distance_to_left > upstream , upstream, floor(distance_to_left/2))
+  new_end <-  ends + ifelse(distance_to_right > downstream, downstream, floor(distance_to_right/2))
   ranges(x) <- IRanges(new_start, new_end)
   trim(x)
+
 }
