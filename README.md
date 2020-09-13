@@ -29,7 +29,7 @@ being used in a development environment.
 
 ```R
 
-devtools::install_github('semibah/histoneSig')
+devtools::install_github('cmvcordova/histoneSig')
 
 ```
 
@@ -148,10 +148,10 @@ Nothing formal here just yet, [just drop me a line](mailto:cesarmiguelv@gmail.co
 
 ## Authors
 
-* **César Miguel Valdez Córdova** - *Initial work* - [semibah](https://github.com/semibah)
+* **César Miguel Valdez Córdova** - *Initial work* - [cmvcordova](https://github.com/cmvcordova)
 
 See also the list of
-[contributors](https://github.com/semibah/histoneSig/contributors) who
+[contributors](https://github.com/cmvcordova/histoneSig/contributors) who
 participated in this project. Currently empty; you could be the first one!
 
 ## License
